@@ -106,7 +106,12 @@ class SessionScanner:
         live_tools_count = 0
         live_tools_raw = []
         live_agents_list = []
-        live_cost = 0.0
+        live_session_ids = {s.session_id for s in live_sessions}
+        live_subagent_cost = sum(
+            s.cost.total for s in sessions
+            if s.is_subagent and s.parent_session_id in live_session_ids
+        )
+        live_cost = live_subagent_cost
 
         for s in live_sessions:
             short_id = s.session_id[:8]

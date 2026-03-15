@@ -2,6 +2,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+from collections import defaultdict
+
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -67,14 +69,26 @@ async def get_sessions(
     reverse = sort != "oldest"
     sessions.sort(key=lambda s: key_fn(s) or 0, reverse=reverse)
 
+    # Build subagent cost map from all sessions (before filtering)
+    all_sessions = scanner.scan_all()
+    subagent_cost_map: dict[str, float] = defaultdict(float)
+    for s in all_sessions:
+        if s.is_subagent and s.parent_session_id:
+            subagent_cost_map[s.parent_session_id] += s.cost.total
+
     total = len(sessions)
     page = sessions[offset : offset + limit]
+
+    def enrich(s):
+        d = s.to_dict()
+        d["subagent_cost"] = round(subagent_cost_map.get(s.session_id, 0.0), 4)
+        return d
 
     return {
         "total": total,
         "offset": offset,
         "limit": limit,
-        "sessions": [s.to_dict() for s in page],
+        "sessions": [enrich(s) for s in page],
     }
 
 @app.get("/api/sessions/{session_id}")
@@ -82,7 +96,14 @@ async def get_session(session_id: str):
     s = scanner.get_session(session_id)
     if not s:
         return {"error": "Session not found"}
-    return s.to_dict()
+    all_sessions = scanner.scan_all()
+    subagent_cost = sum(
+        x.cost.total for x in all_sessions
+        if x.is_subagent and x.parent_session_id == session_id
+    )
+    d = s.to_dict()
+    d["subagent_cost"] = round(subagent_cost, 4)
+    return d
 
 
 @app.get("/api/sessions/{session_id}/events")

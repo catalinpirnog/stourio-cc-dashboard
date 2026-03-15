@@ -257,11 +257,13 @@ def parse_session_file(filepath: Path, project_name: str) -> Optional[SessionSum
             human_count += 1
         elif role == "assistant":
             assistant_count += 1
-            # Track last turn's input tokens for accurate context window %
+            # Track last turn's full context fill (non-cached + cached input)
             usage = msg.get("usage") or msg.get("message", {}).get("usage") or {}
             inp_tok = usage.get("input_tokens", 0) or 0
-            if inp_tok:
-                last_input_tokens = inp_tok
+            cache_tok = usage.get("cache_read_input_tokens", 0) or usage.get("cache_read_tokens", 0) or 0
+            ctx_tok = inp_tok + cache_tok
+            if ctx_tok:
+                last_input_tokens = ctx_tok
 
         msg_model = msg.get("model") or msg.get("message", {}).get("model", "")
         if msg_model:

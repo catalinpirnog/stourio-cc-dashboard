@@ -15,33 +15,55 @@ tailwind.config = {
     extend: {
       fontFamily: { mono: ['JetBrains Mono', 'monospace'], sans: ['DM Sans', 'sans-serif'] },
       colors: {
-        bg: { 900: '#f4f1e8', 800: '#ffffff', 700: '#f8fafc', 600: '#f1f5f9' }
+        bg: { 900: '#0e1018', 800: '#161926', 700: '#1c1f30', 600: '#222540' }
       }
     }
   }
 }
 </script>
 <style>
-  body { background: #f4f1e8; color: #334155; font-family: 'DM Sans', sans-serif; }
+  body { background: #0e1018; color: #c8d4e8; font-family: 'DM Sans', sans-serif; }
   .mono { font-family: 'JetBrains Mono', monospace; }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: #f4f1e8; }
-  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-  .tab-active { border-bottom: 2px solid #0891b2; color: #0891b2; }
-  .tab-inactive { border-bottom: 2px solid transparent; color: #64748b; }
-  .tab-inactive:hover { color: #334155; }
-  .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  ::-webkit-scrollbar-track { background: #0e1018; }
+  ::-webkit-scrollbar-thumb { background: #2a2d42; border-radius: 3px; }
+  .tab-active { border-bottom: 2px solid #38bdf8; color: #38bdf8; }
+  .tab-inactive { border-bottom: 2px solid transparent; color: #7a88a4; }
+  .tab-inactive:hover { color: #c8d4e8; }
+  .card { background: #161926; border: 1px solid #252840; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
   .heatmap-cell { border-radius: 2px; width: 12px; height: 12px; }
   .pulse { animation: pulse 2s infinite; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
   .fade-in { animation: fadeIn 0.2s ease-out; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-  .ctx-bar { height: 4px; border-radius: 2px; background: #e2e8f0; overflow: hidden; }
+  .ctx-bar { height: 4px; border-radius: 2px; background: #252840; overflow: hidden; }
   .ctx-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
-  .error-row { background: #fff5f5 !important; }
-  .detail-row { background: #f8fafc; }
+  .error-row { background: #2a1520 !important; }
+  .detail-row { background: #13162000; }
   tr.expandable { cursor: pointer; }
-  tr.expandable:hover td { background: #f8fafc; }
+  tr.expandable:hover td { background: #1c1f30; }
+  .robot-avatar { transition: transform 0.2s ease; }
+  .robot-avatar:hover { transform: scale(1.12) rotate(-4deg); }
+  .kpi-icon { opacity: 0.6; }
+  .sidebar-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; font-size: 13px; font-weight: 500; color: #9aaac0; cursor: pointer; transition: background 0.15s, color 0.15s; border: none; background: none; width: 100%; text-align: left; }
+  .sidebar-item:hover { background: #1c1f30; color: #c8d4e8; }
+  .sidebar-item.active { background: #1e2235; color: #38bdf8; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+  /* Tailwind gray overrides for dark theme */
+  .text-gray-900 { color: #dde3f0 !important; }
+  .text-gray-700 { color: #b8c8de !important; }
+  .text-gray-600 { color: #8899b4 !important; }
+  .text-gray-500 { color: #9aaac0 !important; }
+  .text-gray-400 { color: #8a9ab8 !important; }
+  .text-gray-300 { color: #5a6882 !important; }
+  .text-slate-400 { color: #8a9ab8 !important; }
+  .border-gray-200 { border-color: #252840 !important; }
+  .border-gray-300 { border-color: #2a2d42 !important; }
+  .border-gray-100 { border-color: #1e2035 !important; }
+  .bg-slate-50 { background: #1c1f30 !important; }
+  .bg-red-50 { background: #2a1520 !important; }
+  .text-cyan-700 { color: #22d3ee !important; }
+  .text-cyan-600 { color: #22d3ee !important; }
+  .text-emerald-700 { color: #34d399 !important; }
 </style>
 </head>
 <body class="min-h-screen">
@@ -56,59 +78,135 @@ tailwind.config = {
     </svg>
     <span class="text-gray-400 text-sm mono">Intelligent Live Ops</span>
   </div>
-  <button onclick="refreshAll()" class="text-gray-500 hover:text-cyan-600 transition text-sm mono border border-gray-300 rounded px-3 py-1 hover:border-cyan-600">refresh</button>
+  <div class="flex items-center gap-2">
+    <a href="https://claude.ai/settings/usage" target="_blank" rel="noopener noreferrer" class="text-gray-500 hover:text-fuchsia-400 transition text-sm mono border border-gray-300 rounded px-3 py-1 hover:border-fuchsia-400">usage ↗</a>
+    <button onclick="refreshAll()" class="text-gray-500 hover:text-cyan-400 transition text-sm mono border border-gray-300 rounded px-3 py-1 hover:border-cyan-400">refresh</button>
+  </div>
 </header>
 
-<!-- Top KPI Bar -->
-<div class="px-6 py-4 border-b border-gray-200 bg-bg-900 flex gap-4 overflow-x-auto">
-  <div class="card p-4 min-w-[160px] flex-1 bg-bg-800 border-gray-200">
-    <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2 flex items-center gap-2">
-      <span class="w-2 h-2 rounded-full bg-emerald-500 pulse"></span> Active Sessions
-    </div>
-    <div class="text-3xl font-bold text-gray-900" id="liveSessions">-</div>
-  </div>
-  <div class="card p-4 min-w-[160px] flex-1 bg-bg-800 border-gray-200">
-    <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2">Live Agents</div>
-    <div class="text-3xl font-bold text-fuchsia-600" id="liveAgentsCount">-</div>
-  </div>
-  <div class="card p-4 min-w-[160px] flex-1 bg-bg-800 border-gray-200">
-    <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2">Live Tools</div>
-    <div class="text-3xl font-bold text-cyan-600" id="liveToolsCount">-</div>
-  </div>
-  <div class="card p-4 min-w-[160px] flex-1 bg-bg-800 border-gray-200">
-    <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2 flex items-center gap-2">
-      Live Cost
-      <span class="text-[9px] bg-amber-100 text-amber-700 border border-amber-200 rounded px-1 py-0.5 font-sans normal-case tracking-normal">API est. · Pro/Max</span>
-    </div>
-    <div class="text-3xl font-bold text-emerald-600" id="liveCost">-</div>
-  </div>
-  <div class="card p-4 min-w-[160px] flex-1 bg-bg-800 border-gray-200">
-    <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2">Avg Turn</div>
-    <div class="text-3xl font-bold text-yellow-600" id="avgTurn">-</div>
-  </div>
-</div>
+<div class="flex" style="min-height: calc(100vh - 69px)">
 
-<nav class="border-b border-gray-200 px-6 flex gap-6 text-sm font-medium bg-bg-900">
-  <button onclick="showTab('live_ops')" id="tab-live_ops" class="py-3 tab-active transition">Live Ops</button>
-  <button onclick="showTab('active_sessions')" id="tab-active_sessions" class="py-3 tab-inactive transition">Live Sessions</button>
-  <button onclick="showTab('history')" id="tab-history" class="py-3 tab-inactive transition">History & Stats</button>
-  <button onclick="showTab('resources')" id="tab-resources" class="py-3 tab-inactive transition">Resources</button>
+<!-- Left Sidebar -->
+<nav class="w-48 shrink-0 border-r border-gray-200 bg-bg-900 flex flex-col gap-1 p-3">
+  <button onclick="showTab('live_ops')" id="tab-live_ops" class="sidebar-item active">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="2" fill="currentColor"/><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1" opacity="0.5"/><circle cx="6.5" cy="6.5" r="5.8" stroke="currentColor" stroke-width="0.8" opacity="0.25"/></svg>
+    Live Ops
+  </button>
+  <button onclick="showTab('session_history')" id="tab-session_history" class="sidebar-item">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="5" r="3.5" stroke="currentColor" stroke-width="1.2"/><path d="M3 9.5 Q6.5 12.5 10 9.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/><line x1="6.5" y1="1.5" x2="6.5" y2="5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="6.5" y1="5" x2="8.5" y2="6.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+    Session History
+  </button>
+  <button onclick="showTab('history')" id="tab-history" class="sidebar-item">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="7" width="2.5" height="5.5" rx="0.5" fill="currentColor"/><rect x="5.2" y="4" width="2.5" height="8.5" rx="0.5" fill="currentColor"/><rect x="9.5" y="1.5" width="2.5" height="11" rx="0.5" fill="currentColor"/></svg>
+    Stats
+  </button>
+  <button onclick="showTab('resources')" id="tab-resources" class="sidebar-item">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="0.8" y="0.8" width="4.9" height="4.9" rx="1" stroke="currentColor" stroke-width="1.1"/><rect x="7.3" y="0.8" width="4.9" height="4.9" rx="1" stroke="currentColor" stroke-width="1.1"/><rect x="0.8" y="7.3" width="4.9" height="4.9" rx="1" stroke="currentColor" stroke-width="1.1"/><rect x="7.3" y="7.3" width="4.9" height="4.9" rx="1" stroke="currentColor" stroke-width="1.1"/></svg>
+    Resources
+  </button>
 </nav>
 
-<main class="p-6 max-w-[1800px] w-full mx-auto">
+<main class="flex-1 p-6 overflow-auto">
 
 <!-- LIVE OPS TAB -->
 <div id="panel-live_ops" class="fade-in">
+
+  <!-- KPI Cards -->
+  <div class="flex gap-4 overflow-x-auto mb-6">
+    <div class="card p-4 min-w-[150px] flex-1 bg-bg-800 border-gray-200">
+      <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 pulse"></span>
+        Active Sessions
+        <span class="ml-auto kpi-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="14" height="12" rx="2" stroke="#64748b" stroke-width="1.4"/><line x1="1" y1="6" x2="15" y2="6" stroke="#64748b" stroke-width="1.4"/><polyline points="3.5,9.5 5.5,11.5 3.5,13.5" stroke="#64748b" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><line x1="7" y1="13.5" x2="11" y2="13.5" stroke="#64748b" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </span>
+      </div>
+      <div class="text-3xl font-bold text-gray-900" id="liveSessions">-</div>
+    </div>
+    <div class="card p-4 min-w-[150px] flex-1 bg-bg-800 border-gray-200">
+      <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2 flex items-center gap-2">
+        Live Agents
+        <span class="ml-auto kpi-icon">
+          <svg width="16" height="16" viewBox="0 0 11 8" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="#D57858" d="M1 0h9v2h1v4H10v2H9V6H8v2H7V6H4v2H3V6H2v2H1V6H0V2h1V0z M2 2h1v1H2V2z M8 2h1v1H8V2z" fill-rule="evenodd"/></svg>
+        </span>
+      </div>
+      <div class="text-3xl font-bold text-fuchsia-600" id="liveAgentsCount">-</div>
+    </div>
+    <div class="card p-4 min-w-[150px] flex-1 bg-bg-800 border-gray-200">
+      <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2 flex items-center gap-2">
+        Live Tools
+        <span class="ml-auto kpi-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.5 1.5C9.84 1.5 8.5 2.84 8.5 4.5c0 .36.07.7.18 1.02L2.5 11.5a1.25 1.25 0 0 0 1.77 1.77l6-5.89c.31.11.65.18 1.02.18 1.66 0 3-1.34 3-3 0-.45-.1-.88-.27-1.27L12 5.5l-1.5-1.5 2.27-2.23C13.38 1.6 12.95 1.5 12.5 1.5z" stroke="#0891b2" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </div>
+      <div class="text-3xl font-bold text-cyan-600" id="liveToolsCount">-</div>
+    </div>
+    <div class="card p-4 min-w-[150px] flex-1 bg-bg-800 border-gray-200">
+      <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2 flex items-center gap-2">
+        Live Cost
+        <span style="font-size:9px;background:#2a1e00;color:#d97706;border:1px solid #78350f;border-radius:4px;padding:1px 4px">API est.</span>
+        <span class="ml-auto kpi-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6.5" stroke="#10b981" stroke-width="1.3"/><text x="8" y="11.8" text-anchor="middle" font-size="8.5" font-weight="700" fill="#10b981" font-family="sans-serif">$</text></svg>
+        </span>
+      </div>
+      <div class="text-3xl font-bold text-emerald-600" id="liveCost">-</div>
+    </div>
+    <div class="card p-4 min-w-[150px] flex-1 bg-bg-800 border-gray-200">
+      <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2 flex items-center gap-2">
+        Avg Turn
+        <span class="ml-auto kpi-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="9" r="6" stroke="#eab308" stroke-width="1.3"/><path d="M8 6v3l2 1.2" stroke="#eab308" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><line x1="6" y1="1.5" x2="10" y2="1.5" stroke="#eab308" stroke-width="1.3" stroke-linecap="round"/><line x1="8" y1="1.5" x2="8" y2="3" stroke="#eab308" stroke-width="1.3" stroke-linecap="round"/></svg>
+        </span>
+      </div>
+      <div class="text-3xl font-bold text-yellow-600" id="avgTurn">-</div>
+    </div>
+  </div>
+
+  <!-- Live Sessions -->
+  <div class="mb-8">
+    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-4">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="1" width="9" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="4" y1="4.5" x2="9" y2="4.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="6.5" x2="9" y2="6.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="8.5" x2="7" y2="8.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+      Live Sessions
+    </h3>
+    <div class="card overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="text-left text-gray-500 text-xs uppercase tracking-wider">
+          <tr class="border-b border-gray-200 bg-bg-700">
+            <th class="px-4 py-3">Session</th>
+            <th class="px-4 py-3">Project</th>
+            <th class="px-4 py-3">Model</th>
+            <th class="px-4 py-3 text-right">Duration</th>
+            <th class="px-4 py-3 text-right">Tokens</th>
+            <th class="px-4 py-3 text-right">Agent Cost</th>
+            <th class="px-4 py-3 text-right">Session Cost</th>
+            <th class="px-4 py-3 text-right">Total Cost</th>
+            <th class="px-4 py-3 text-right">Errors</th>
+            <th class="px-4 py-3 text-right">Context</th>
+            <th class="px-4 py-3 text-right">Last Turn</th>
+          </tr>
+        </thead>
+        <tbody id="activeSessionsBody" class="mono text-xs"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Active Agents + Live Tools -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
     <div class="flex flex-col gap-4">
-      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Active Agents</h3>
+      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 11 8" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="#D57858" d="M1 0h9v2h1v4H10v2H9V6H8v2H7V6H4v2H3V6H2v2H1V6H0V2h1V0z M2 2h1v1H2V2z M8 2h1v1H8V2z" fill-rule="evenodd"/></svg>
+        Active Agents
+      </h3>
       <div id="liveAgentsGrid" class="grid grid-cols-1 gap-4">
         <div class="text-gray-500 text-sm">Loading active agents...</div>
       </div>
     </div>
 
     <div class="flex flex-col gap-4">
-      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Live Tools</h3>
+      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 1.5C9.84 1.5 8.5 2.84 8.5 4.5c0 .36.07.7.18 1.02L2.5 11.5a1.25 1.25 0 0 0 1.77 1.77l6-5.89c.31.11.65.18 1.02.18 1.66 0 3-1.34 3-3 0-.45-.1-.88-.27-1.27L12 5.5l-1.5-1.5 2.27-2.23C13.38 1.6 12.95 1.5 12.5 1.5z" stroke="#0891b2" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Live Tools
+      </h3>
       <div class="card overflow-hidden">
         <table class="w-full text-sm">
           <thead class="text-left text-gray-500 text-xs uppercase tracking-wider">
@@ -126,8 +224,9 @@ tailwind.config = {
   </div>
 </div>
 
-<!-- LIVE SESSIONS TAB -->
-<div id="panel-active_sessions" class="hidden fade-in">
+
+<!-- SESSION HISTORY TAB -->
+<div id="panel-session_history" class="hidden fade-in">
   <div class="card overflow-hidden">
     <table class="w-full text-sm">
       <thead class="text-left text-gray-500 text-xs uppercase tracking-wider">
@@ -137,20 +236,25 @@ tailwind.config = {
           <th class="px-4 py-3">Model</th>
           <th class="px-4 py-3 text-right">Duration</th>
           <th class="px-4 py-3 text-right">Tokens</th>
-          <th class="px-4 py-3 text-right">Cost</th>
+          <th class="px-4 py-3 text-right">Agent Cost</th>
+          <th class="px-4 py-3 text-right">Session Cost</th>
+          <th class="px-4 py-3 text-right">Total Cost</th>
           <th class="px-4 py-3 text-right">Errors</th>
           <th class="px-4 py-3 text-right">Context</th>
           <th class="px-4 py-3 text-right">Last Turn</th>
         </tr>
       </thead>
-      <tbody id="activeSessionsBody" class="mono text-xs"></tbody>
+      <tbody id="closedSessionsBody" class="mono text-xs"></tbody>
     </table>
   </div>
 </div>
 
 <!-- HISTORY TAB -->
 <div id="panel-history" class="hidden fade-in">
-  <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Historical Overview</h3>
+  <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="7" width="2.5" height="6" rx="0.5" fill="#64748b"/><rect x="5.5" y="4" width="2.5" height="9" rx="0.5" fill="#64748b"/><rect x="10" y="1.5" width="2.5" height="11.5" rx="0.5" fill="#64748b"/></svg>
+    Historical Overview
+  </h3>
 
   <div class="flex gap-4 mb-6 overflow-x-auto" id="historyCards">
     <div class="text-gray-500 text-sm">Loading...</div>
@@ -184,19 +288,31 @@ tailwind.config = {
   <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="resourcesGrid">
     <div class="flex flex-col gap-4">
       <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full bg-fuchsia-600"></div> Agents
+        <svg width="20" height="20" viewBox="0 0 11 8" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="#D57858" d="M1 0h9v2h1v4H10v2H9V6H8v2H7V6H4v2H3V6H2v2H1V6H0V2h1V0z M2 2h1v1H2V2z M8 2h1v1H8V2z" fill-rule="evenodd"/></svg>
+        Agents
       </h4>
       <div id="agentsList" class="flex flex-col gap-3"><div class="text-gray-500 text-sm">Loading...</div></div>
     </div>
     <div class="flex flex-col gap-4">
       <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full bg-emerald-600"></div> Skills
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M11 2L3 12h7l-1 6 8-10h-7l1-6z" fill="#10b98122" stroke="#10b981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Skills
       </h4>
       <div id="skillsList" class="flex flex-col gap-3"><div class="text-gray-500 text-sm">Loading...</div></div>
     </div>
     <div class="flex flex-col gap-4">
       <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full bg-cyan-600"></div> MCP Servers
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="3" width="16" height="6" rx="2" stroke="#0891b2" stroke-width="1.4"/>
+          <rect x="2" y="12" width="16" height="6" rx="2" stroke="#0891b2" stroke-width="1.4"/>
+          <circle cx="15" cy="6" r="1.2" fill="#0891b2"/>
+          <circle cx="15" cy="15" r="1.2" fill="#0891b2"/>
+          <line x1="4.5" y1="6" x2="11" y2="6" stroke="#0891b2" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="4.5" y1="15" x2="11" y2="15" stroke="#0891b2" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        MCP Servers
       </h4>
       <div id="mcpList" class="flex flex-col gap-3"><div class="text-gray-500 text-sm">Loading...</div></div>
     </div>
@@ -204,10 +320,49 @@ tailwind.config = {
 </div>
 
 </main>
+</div><!-- end flex wrapper -->
 
 <script>
 let charts = {};
 
+// ── Robot avatar helpers ─────────────────────────────────────────────────────
+const AGENT_COLORS = ['#8b5cf6','#a78bfa','#7c3aed','#6d28d9','#c084fc'];
+
+function agentColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  return AGENT_COLORS[h % AGENT_COLORS.length];
+}
+
+function robotSVG(name, size) {
+  size = size || 38;
+  const c = agentColor(name);
+  return `<svg width="${size}" height="${size}" viewBox="0 0 11 8" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" class="robot-avatar shrink-0">
+    <path fill="${c}" d="M1 0h9v2h1v4H10v2H9V6H8v2H7V6H4v2H3V6H2v2H1V6H0V2h1V0z M2 2h1v1H2V2z M8 2h1v1H8V2z" fill-rule="evenodd"/>
+  </svg>`;
+}
+
+// ── Sleeping robot empty state ───────────────────────────────────────────────
+function sleepingRobotHTML() {
+  return `<div class="flex flex-col items-center py-10 text-gray-400">
+    <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="36" y1="5" x2="36" y2="13" stroke="#3a4060" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="36" cy="5" r="3.5" fill="#3a4060"/>
+      <text x="44" y="15" fill="#3a4060" font-size="9" font-weight="bold" font-family="sans-serif">z</text>
+      <text x="50" y="9" fill="#3a4060" font-size="11" font-weight="bold" font-family="sans-serif">z</text>
+      <text x="57" y="4" fill="#3a4060" font-size="14" font-weight="bold" font-family="sans-serif">z</text>
+      <rect x="10" y="13" width="52" height="44" rx="8" fill="#1c1f30" stroke="#3a4060" stroke-width="2"/>
+      <path d="M20 35 Q26 32 32 35" stroke="#3a4060" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <path d="M40 35 Q46 32 52 35" stroke="#3a4060" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <path d="M24 46 Q36 52 48 46" stroke="#3a4060" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <rect x="2" y="25" width="8" height="14" rx="2.5" fill="#1c1f30" stroke="#3a4060" stroke-width="1.8"/>
+      <rect x="62" y="25" width="8" height="14" rx="2.5" fill="#1c1f30" stroke="#3a4060" stroke-width="1.8"/>
+    </svg>
+    <div class="text-sm text-gray-400 mt-2">No agents running right now</div>
+  </div>`;
+}
+
+// ── Formatters ───────────────────────────────────────────────────────────────
 function fmt(n) {
   if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
   if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
@@ -248,22 +403,23 @@ function ctxColor(pct) {
 }
 
 function showTab(name) {
-  ['live_ops', 'active_sessions', 'history', 'resources'].forEach(t => {
+  ['live_ops', 'session_history', 'history', 'resources'].forEach(t => {
     document.getElementById('panel-' + t).classList.toggle('hidden', t !== name);
-    document.getElementById('tab-' + t).className = t === name ? 'py-3 tab-active transition' : 'py-3 tab-inactive transition';
+    document.getElementById('tab-' + t).className = t === name ? 'sidebar-item active' : 'sidebar-item';
   });
+  if (name === 'session_history') loadClosedSessions();
 }
 
 function renderDonut(canvasId, data, colors, labels) {
   if (charts[canvasId]) charts[canvasId].destroy();
   charts[canvasId] = new Chart(document.getElementById(canvasId), {
     type: 'doughnut',
-    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#ffffff' }] },
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#161926' }] },
     options: {
       maintainAspectRatio: false,
       cutout: '65%',
       plugins: {
-        legend: { position: 'bottom', labels: { color: '#64748b', font: { size: 11, family: 'JetBrains Mono' }, padding: 12 } }
+        legend: { position: 'bottom', labels: { color: '#7a88a4', font: { size: 11, family: 'JetBrains Mono' }, padding: 12 } }
       }
     }
   });
@@ -290,8 +446,8 @@ function renderLineChart(canvasId, labels, data, label, color) {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 14 }, grid: { color: '#f1f5f9' } },
-        y: { ticks: { color: '#94a3b8', font: { size: 10 }, callback: v => '$' + v.toFixed(2) }, grid: { color: '#f1f5f9' } }
+        x: { ticks: { color: '#505870', font: { size: 10 }, maxTicksLimit: 14 }, grid: { color: '#1c1f30' } },
+        y: { ticks: { color: '#505870', font: { size: 10 }, callback: v => '$' + v.toFixed(2) }, grid: { color: '#1c1f30' } }
       }
     }
   });
@@ -309,8 +465,8 @@ function renderBarChart(canvasId, labels, data, color) {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: '#64748b', font: { size: 10, family: 'JetBrains Mono' } }, grid: { display: false } },
-        y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#f1f5f9' } }
+        x: { ticks: { color: '#505870', font: { size: 10, family: 'JetBrains Mono' } }, grid: { display: false } },
+        y: { ticks: { color: '#505870', font: { size: 10 } }, grid: { color: '#1c1f30' } }
       }
     }
   });
@@ -331,7 +487,7 @@ function renderHeatmap(dailySessions) {
     const count = dailySessions[key] || 0;
     const intensity = count / maxVal;
     let bg;
-    if (count === 0) bg = '#e2e8f0';
+    if (count === 0) bg = '#1c1f30';
     else if (intensity < 0.25) bg = '#cffafe';
     else if (intensity < 0.5) bg = '#67e8f9';
     else if (intensity < 0.75) bg = '#06b6d4';
@@ -340,6 +496,55 @@ function renderHeatmap(dailySessions) {
   }
   html += '</div>';
   container.innerHTML = html;
+}
+
+// ── Shared session row renderer ──────────────────────────────────────────────
+function renderSessionRow(s) {
+  const ctx = s.context_window || {};
+  const ctxPct = ctx.utilization_pct || 0;
+  const displayName = s.slug || s.session_id.substring(0, 8);
+  const errBadge = s.tool_error_count > 0
+    ? `<span class="text-red-500 font-bold">${s.tool_error_count}</span>`
+    : `<span class="text-gray-300">0</span>`;
+  const tok = s.tokens;
+  const tokenCell = `<div class="flex flex-col gap-0.5">
+    <div class="flex justify-end gap-2.5">
+      <span><span class="text-slate-400">in</span> ${fmt(tok.input)}</span>
+      <span><span class="text-cyan-500">out</span> ${fmt(tok.output)}</span>
+    </div>
+    <div class="flex justify-end gap-2.5">
+      <span><span class="text-emerald-500">cr</span> ${fmt(tok.cache_read)}</span>
+      <span><span class="text-amber-500">cc</span> ${fmt(tok.cache_creation)}</span>
+    </div>
+  </div>`;
+  return `
+    <tr class="border-b border-gray-200 expandable fade-in" onclick="toggleSessionDetail('${s.session_id}', this.querySelector('.expand-btn'))">
+      <td class="px-4 py-2.5">
+        <div class="flex items-center gap-1.5">
+          <span class="expand-btn text-gray-300 text-xs w-3">▸</span>
+          <span class="text-gray-700 mono text-xs" title="${s.session_id}">${displayName}</span>
+        </div>
+      </td>
+      <td class="px-4 py-2.5 text-cyan-600">${s.project}</td>
+      <td class="px-4 py-2.5 text-gray-600 truncate max-w-[100px]" title="${s.model}">${shortModel(s.model)}</td>
+      <td class="px-4 py-2.5 text-right mono text-gray-600">${s.duration_display}</td>
+      <td class="px-4 py-2.5 mono text-gray-600 text-[10px]">${tokenCell}</td>
+      <td class="px-4 py-2.5 text-right mono ${s.subagent_cost > 0 ? 'text-fuchsia-600' : 'text-gray-300'}">${s.subagent_cost > 0 ? fmtCost(s.subagent_cost) : '—'}</td>
+      <td class="px-4 py-2.5 text-right mono text-cyan-700">${fmtCost(s.cost.total)}</td>
+      <td class="px-4 py-2.5 text-right mono text-emerald-700">${fmtCost(s.cost.total + (s.subagent_cost || 0))}</td>
+      <td class="px-4 py-2.5 text-right">${errBadge}</td>
+      <td class="px-4 py-2.5 text-right" style="min-width:80px">
+        <div class="flex items-center justify-end gap-1.5">
+          <span class="mono text-[10px]" style="color:${ctxColor(ctxPct)}">${ctxPct}%</span>
+          <div class="ctx-bar w-12"><div class="ctx-fill" style="width:${Math.min(ctxPct,100)}%;background:${ctxColor(ctxPct)}"></div></div>
+        </div>
+      </td>
+      <td class="px-4 py-2.5 text-right mono text-yellow-600">${fmtMs(s.last_turn_duration_ms)}</td>
+    </tr>
+    <tr id="detail-${s.session_id}" class="hidden detail-row border-b border-gray-100">
+      <tbody class="detail-content"><tr><td colspan="11"></td></tr></tbody>
+    </tr>
+  `;
 }
 
 // Session detail expand/collapse
@@ -355,14 +560,14 @@ function toggleSessionDetail(sessionId, btn) {
 }
 
 async function loadSessionDetail(sessionId, row) {
-  row.querySelector('.detail-content').innerHTML = '<td colspan="9" class="px-6 py-3 text-gray-400 mono text-xs">Loading...</td>';
+  row.querySelector('.detail-content').innerHTML = '<td colspan="11" class="px-6 py-3 text-gray-400 mono text-xs">Loading...</td>';
   try {
     const res = await fetch('/api/sessions/' + sessionId);
     const s = await res.json();
     row.dataset.loaded = 'true';
     const tools = s.tool_calls || [];
     if (tools.length === 0) {
-      row.querySelector('.detail-content').innerHTML = '<td colspan="9" class="px-6 py-3 text-gray-400 text-xs">No tool calls recorded.</td>';
+      row.querySelector('.detail-content').innerHTML = '<td colspan="11" class="px-6 py-3 text-gray-400 text-xs">No tool calls recorded.</td>';
       return;
     }
     const rows = tools.slice(-30).reverse().map(t => `
@@ -373,9 +578,9 @@ async function loadSessionDetail(sessionId, row) {
       </tr>
     `).join('');
     row.querySelector('.detail-content').innerHTML = `
-      <td colspan="9" class="px-0 py-0">
+      <td colspan="11" class="px-0 py-0">
         <table class="w-full">
-          <thead><tr class="bg-slate-50 border-b border-gray-100">
+          <thead><tr class="border-b" style="background:#1c1f30;border-color:#252840">
             <th class="pl-10 pr-2 py-1.5 text-left text-[10px] text-gray-400 uppercase tracking-wider">Tool</th>
             <th class="px-2 py-1.5 text-left text-[10px] text-gray-400 uppercase tracking-wider">Input</th>
             <th class="px-2 py-1.5 text-right text-[10px] text-gray-400 uppercase tracking-wider">When</th>
@@ -392,7 +597,7 @@ async function loadSessionDetail(sessionId, row) {
       </td>
     `;
   } catch (e) {
-    row.querySelector('.detail-content').innerHTML = '<td colspan="9" class="px-6 py-3 text-red-400 text-xs">Failed to load detail.</td>';
+    row.querySelector('.detail-content').innerHTML = '<td colspan="11" class="px-6 py-3 text-red-400 text-xs">Failed to load detail.</td>';
   }
 }
 
@@ -414,19 +619,24 @@ async function loadDashboard() {
   // Active Agents grid
   const grid = document.getElementById('liveAgentsGrid');
   if (ops.active_agents.length === 0) {
-    grid.innerHTML = '<div class="text-gray-500 text-sm">No agents actively running right now.</div>';
+    grid.innerHTML = sleepingRobotHTML();
   } else {
     grid.innerHTML = ops.active_agents.map(a => `
       <div class="card p-4 border-l-4 border-l-fuchsia-500 hover:bg-bg-700 transition fade-in">
-        <div class="flex justify-between items-start mb-2">
-          <div class="text-fuchsia-600 font-mono font-bold text-sm truncate pr-2" title="${a.agent_id}">${a.agent_id}</div>
-          <div class="text-xs text-gray-400 shrink-0">${timeSince(a.timestamp)}</div>
-        </div>
-        <div class="flex items-center gap-2 mb-1">
-          <div class="text-gray-500 text-xs uppercase truncate">${a.project}</div>
-          <span class="text-gray-300">·</span>
-          <div class="text-gray-400 text-xs mono">${a.session_id}</div>
-          ${a.last_turn_ms ? `<span class="text-gray-300">·</span><div class="text-yellow-600 text-xs mono">${fmtMs(a.last_turn_ms)}</div>` : ''}
+        <div class="flex items-start gap-3 mb-2">
+          ${robotSVG(a.agent_id)}
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-start">
+              <div class="text-fuchsia-600 font-mono font-bold text-sm truncate pr-2" title="${a.agent_id}">${a.agent_id}</div>
+              <div class="text-xs text-gray-400 shrink-0">${timeSince(a.timestamp)}</div>
+            </div>
+            <div class="flex items-center gap-2 mt-1">
+              <div class="text-gray-500 text-xs uppercase truncate">${a.project}</div>
+              <span class="text-gray-300">·</span>
+              <div class="text-gray-400 text-xs mono">${a.session_id}</div>
+              ${a.last_turn_ms ? `<span class="text-gray-300">·</span><div class="text-yellow-600 text-xs mono">${fmtMs(a.last_turn_ms)}</div>` : ''}
+            </div>
+          </div>
         </div>
         <div class="text-gray-700 text-sm leading-relaxed line-clamp-3">${a.task || 'Executing task...'}</div>
       </div>
@@ -436,7 +646,14 @@ async function loadDashboard() {
   // Live Tools table
   const toolsBody = document.getElementById('liveToolsBody');
   if (ops.active_tools_list.length === 0) {
-    toolsBody.innerHTML = '<tr><td colspan="4" class="px-4 py-4 text-gray-500">No tools active.</td></tr>';
+    toolsBody.innerHTML = `<tr><td colspan="4" class="px-4 py-10 text-center">
+      <div class="flex flex-col items-center gap-2">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" class="opacity-30">
+          <path d="M34 5C27.4 5 22 10.4 22 17c0 1.4.2 2.7.7 3.9L7 36.6a4 4 0 0 0 5.7 5.7L28 27c1.2.5 2.5.7 3.9.7C38.5 27.7 44 22.3 44 15.7V15c0-1.8-.4-3.5-1.2-5L37 15.5l-4-4 6.2-6.3C37.6 5.1 35.8 5 34 5z" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="text-gray-400 text-sm">No tools active</span>
+      </div>
+    </td></tr>`;
   } else {
     toolsBody.innerHTML = ops.active_tools_list.map(t => `
       <tr class="border-b border-gray-200 hover:bg-bg-700 fade-in ${t.is_error ? 'bg-red-50' : ''}">
@@ -455,58 +672,60 @@ async function loadDashboard() {
   const activeSessions = sessionsData.sessions.filter(s => !s.is_subagent);
   const sessionBody = document.getElementById('activeSessionsBody');
   if (activeSessions.length === 0) {
-    sessionBody.innerHTML = '<tr><td colspan="9" class="px-4 py-4 text-gray-500">No active sessions.</td></tr>';
+    sessionBody.innerHTML = '<tr><td colspan="11" class="px-4 py-4 text-gray-500">No active sessions.</td></tr>';
   } else {
-    sessionBody.innerHTML = activeSessions.map(s => {
-      const ctx = s.context_window || {};
-      const ctxPct = ctx.utilization_pct || 0;
-      const displayName = s.slug || s.session_id.substring(0, 8);
-      const errBadge = s.tool_error_count > 0
-        ? `<span class="text-red-500 font-bold">${s.tool_error_count}</span>`
-        : `<span class="text-gray-300">0</span>`;
-      return `
-        <tr class="border-b border-gray-200 expandable fade-in" onclick="toggleSessionDetail('${s.session_id}', this.querySelector('.expand-btn'))">
-          <td class="px-4 py-2.5">
-            <div class="flex items-center gap-1.5">
-              <span class="expand-btn text-gray-300 text-xs w-3">▸</span>
-              <span class="text-gray-700 mono text-xs" title="${s.session_id}">${displayName}</span>
-            </div>
-          </td>
-          <td class="px-4 py-2.5 text-cyan-600">${s.project}</td>
-          <td class="px-4 py-2.5 text-gray-600 truncate max-w-[100px]" title="${s.model}">${shortModel(s.model)}</td>
-          <td class="px-4 py-2.5 text-right mono text-gray-600">${s.duration_display}</td>
-          <td class="px-4 py-2.5 text-right mono text-gray-600">${fmt(s.tokens.total)}</td>
-          <td class="px-4 py-2.5 text-right mono text-emerald-700">${fmtCost(s.cost.total)}</td>
-          <td class="px-4 py-2.5 text-right">${errBadge}</td>
-          <td class="px-4 py-2.5 text-right" style="min-width:80px">
-            <div class="flex items-center justify-end gap-1.5">
-              <span class="mono text-[10px]" style="color:${ctxColor(ctxPct)}">${ctxPct}%</span>
-              <div class="ctx-bar w-12"><div class="ctx-fill" style="width:${Math.min(ctxPct,100)}%;background:${ctxColor(ctxPct)}"></div></div>
-            </div>
-          </td>
-          <td class="px-4 py-2.5 text-right mono text-yellow-600">${fmtMs(s.last_turn_duration_ms)}</td>
-        </tr>
-        <tr id="detail-${s.session_id}" class="hidden detail-row border-b border-gray-100">
-          <tbody class="detail-content"><tr><td colspan="9"></td></tr></tbody>
-        </tr>
-      `;
-    }).join('');
+    sessionBody.innerHTML = activeSessions.map(renderSessionRow).join('');
   }
 
-  // History cards
+  // History cards with icons
   const o = stats.overview;
   const totalAgents = Object.keys(stats.agent_teams.agents).length;
   const avgCost = o.total_sessions > 0 ? o.total_cost / o.total_sessions : 0;
 
-  document.getElementById('historyCards').innerHTML = [
-    { label: 'Total Sessions', value: fmt(o.total_sessions), sub: `+${o.total_subagent_sessions} subagents`, color: 'text-cyan-600' },
-    { label: 'Total Cost <span class="text-[9px] bg-amber-100 text-amber-700 border border-amber-200 rounded px-1 py-0.5 font-sans normal-case tracking-normal">API est. · Pro/Max</span>', value: fmtCost(o.total_cost), sub: `avg ${fmtCost(avgCost)}/session`, color: 'text-emerald-600' },
-    { label: 'Tool Calls', value: fmt(o.total_tool_calls), sub: `${o.total_tool_errors} errors`, color: 'text-yellow-600' },
-    { label: 'Agents Deployed', value: fmt(totalAgents), sub: `${stats.agent_teams.total_dispatches} dispatches`, color: 'text-fuchsia-600' },
-    { label: 'Cache Hit Ratio', value: o.cache_hit_ratio + '%', sub: 'input token reuse', color: 'text-blue-600' },
-  ].map(c => `
+  const historyCardDefs = [
+    {
+      label: 'Total Sessions',
+      value: fmt(o.total_sessions),
+      sub: `+${o.total_subagent_sessions} subagents`,
+      color: 'text-cyan-600',
+      icon: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="2" width="16" height="14" rx="2.5" stroke="#0891b2" stroke-width="1.4"/><line x1="1" y1="7" x2="17" y2="7" stroke="#0891b2" stroke-width="1.4"/><polyline points="4,11 6,13 4,15" stroke="#0891b2" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><line x1="8" y1="15" x2="12" y2="15" stroke="#0891b2" stroke-width="1.4" stroke-linecap="round"/></svg>`
+    },
+    {
+      label: 'Total Cost <span style="font-size:9px;background:#2a1e00;color:#d97706;border:1px solid #78350f;border-radius:4px;padding:1px 4px;font-family:DM Sans,sans-serif;text-transform:none;letter-spacing:normal">API est.</span>',
+      value: fmtCost(o.total_cost),
+      sub: `avg ${fmtCost(avgCost)}/session`,
+      color: 'text-emerald-600',
+      icon: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7.5" stroke="#10b981" stroke-width="1.4"/><text x="9" y="13" text-anchor="middle" font-size="9.5" font-weight="700" fill="#10b981" font-family="sans-serif">$</text></svg>`
+    },
+    {
+      label: 'Tool Calls',
+      value: fmt(o.total_tool_calls),
+      sub: `${o.total_tool_errors} errors`,
+      color: 'text-yellow-600',
+      icon: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M13 2C11.07 2 9.5 3.57 9.5 5.5c0 .42.08.82.22 1.19L3.5 12.5a1.41 1.41 0 0 0 2 2l6-5.81c.37.14.77.22 1.19.22C14.93 9 16.5 7.43 16.5 5.5c0-.51-.11-1-.31-1.44L14 6.5l-1.5-1.5 2.44-2.69C14.5 2.1 13.8 2 13 2z" stroke="#eab308" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+    },
+    {
+      label: 'Agents Deployed',
+      value: fmt(totalAgents),
+      sub: `${stats.agent_teams.total_dispatches} dispatches`,
+      color: 'text-fuchsia-600',
+      icon: `<svg width="18" height="18" viewBox="0 0 11 8" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="#D57858" d="M1 0h9v2h1v4H10v2H9V6H8v2H7V6H4v2H3V6H2v2H1V6H0V2h1V0z M2 2h1v1H2V2z M8 2h1v1H8V2z" fill-rule="evenodd"/></svg>`
+    },
+    {
+      label: 'Cache Hit Ratio',
+      value: o.cache_hit_ratio + '%',
+      sub: 'input token reuse',
+      color: 'text-blue-600',
+      icon: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><ellipse cx="9" cy="5" rx="6" ry="2.2" stroke="#3b82f6" stroke-width="1.3"/><path d="M3 5v8c0 1.2 2.7 2.2 6 2.2s6-1 6-2.2V5" stroke="#3b82f6" stroke-width="1.3"/><path d="M3 9c0 1.2 2.7 2.2 6 2.2s6-1 6-2.2" stroke="#3b82f6" stroke-width="1.3"/><path d="M10 8.5l-2 2.5h1.5L8.5 14l2.5-3H9.5L10 8.5z" fill="#3b82f6" opacity="0.8"/></svg>`
+    },
+  ];
+
+  document.getElementById('historyCards').innerHTML = historyCardDefs.map(c => `
     <div class="card p-4 min-w-[180px] flex-1 bg-bg-800 border-gray-200 fade-in">
-      <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-1">${c.label}</div>
+      <div class="flex items-center justify-between mb-1">
+        <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider">${c.label}</div>
+        <div class="kpi-icon">${c.icon}</div>
+      </div>
       <div class="text-3xl font-bold ${c.color}">${c.value}</div>
       <div class="text-[10px] text-gray-400 mt-1 mono">${c.sub}</div>
     </div>
@@ -542,9 +761,9 @@ async function loadResources() {
 
     const renderCard = (item, colorClass) => `
       <div class="card p-3 border-l-4 ${colorClass} hover:bg-bg-700 transition fade-in cursor-pointer" onclick="this.querySelector('.desc-panel').classList.toggle('hidden')">
-        <div class="font-bold text-gray-800 text-sm truncate pr-2">${item.name}</div>
-        <div class="text-xs text-gray-400 mt-1 uppercase mono">${item.type}</div>
-        <div class="desc-panel hidden mt-3 pt-3 border-t border-gray-100 text-gray-600 text-xs whitespace-pre-wrap break-words">
+        <div class="font-bold text-sm truncate pr-2" style="color:#dde3f0">${item.name}</div>
+        <div class="text-xs mt-1 uppercase mono" style="color:#505870">${item.type}</div>
+        <div class="desc-panel hidden mt-3 pt-3 text-xs whitespace-pre-wrap break-words" style="border-top:1px solid #252840;color:#8899b4">
           ${item.description}
         </div>
       </div>
@@ -569,9 +788,35 @@ async function loadResources() {
   }
 }
 
+let closedSessionsLoaded = false;
+
+async function loadClosedSessions() {
+  const body = document.getElementById('closedSessionsBody');
+  if (!body) return;
+  if (!closedSessionsLoaded) {
+    body.innerHTML = '<tr><td colspan="11" class="px-4 py-4 text-gray-400 mono text-xs">Loading...</td></tr>';
+  }
+  try {
+    const res = await fetch('/api/sessions?status=completed&sort=newest&limit=50');
+    const data = await res.json();
+    const sessions = data.sessions.filter(s => !s.is_subagent);
+    if (sessions.length === 0) {
+      body.innerHTML = '<tr><td colspan="11" class="px-4 py-8 text-center text-gray-400 text-sm">No completed sessions yet.</td></tr>';
+    } else {
+      body.innerHTML = sessions.map(renderSessionRow).join('');
+    }
+    closedSessionsLoaded = true;
+  } catch (e) {
+    body.innerHTML = '<tr><td colspan="11" class="px-4 py-4 text-red-400 text-xs">Failed to load sessions.</td></tr>';
+  }
+}
+
 function refreshAll() {
   loadDashboard();
   loadResources();
+  if (!document.getElementById('panel-session_history').classList.contains('hidden')) {
+    loadClosedSessions();
+  }
 }
 
 loadDashboard();
@@ -579,6 +824,9 @@ loadResources();
 setInterval(() => {
   loadDashboard();
   loadResources();
+  if (!document.getElementById('panel-session_history').classList.contains('hidden')) {
+    loadClosedSessions();
+  }
 }, 30000);
 </script>
 </body>

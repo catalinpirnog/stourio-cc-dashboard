@@ -2,36 +2,27 @@
 
 Local observability dashboard for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Reads `~/.claude/projects/` session logs, parses them into structured data, and serves a real-time dashboard — **fully offline, never sends data anywhere**.
 
-<p align="center">
-  <img src="stourio_dashboard/static/logo.png" alt="Stourio CC Dashboard" width="200">
-</p>
-
----
-
-<p align="center">
-  <img src="stourio_dashboard/static/screenshot.png" alt="Dashboard Screenshot" width="700">
-</p>
-
 ---
 
 ## Features
 
-### 🟢 Live Ops
-Real-time view of what Claude Code is doing right now:
-- **Active agents grid** — agent name (subagent type), task description, session slug, last turn duration
-- **Live tools table** — every tool invocation as it happens, with the actual input (file path, bash command, search query, URL) shown inline. Error calls highlighted in red.
-- **Top bar KPIs** — Active Sessions, Live Agents, Live Tools, Live Cost (API estimate), Avg Turn Duration
+Navigation is a **left sidebar** with four sections: Live Ops, Session History, Stats, Resources. Dark mode UI throughout.
 
-### 📡 Live Sessions
-Table of all currently active sessions — subagent sessions filtered out to avoid inflation. Columns:
+### 🟢 Live Ops (default view)
+Real-time view of what Claude Code is doing right now. Contains three sections:
+
+**KPI bar** — Active Sessions, Live Agents, Live Tools, Live Cost (API estimate), Avg Turn Duration
+
+**Live Sessions table** — all currently active sessions, subagent sessions filtered out. Columns:
 - Session slug (human-readable name) + expandable detail row
 - Project, model, duration, tokens
-- **Cost** (API estimate with Pro/Max note)
-- **Tool error count**
-- **Context window %** with color-coded progress bar (green → amber → red)
-- **Last turn duration**
+- Cost (API estimate), tool error count, context window %, last turn duration
 
 Click any row to expand and see the last 30 tool calls with inputs, error flags, cache hit ratio, and branch.
+
+**Active agents grid** — agent name (subagent type), task description, session slug, last turn duration
+
+**Live tools table** — every tool invocation as it happens, with the actual input (file path, bash command, search query, URL) shown inline. Error calls highlighted in red.
 
 ### 📊 History & Stats
 - **Overview cards** — Total Sessions (+ subagent count), Total Cost (API est.), Tool Calls + error count, Agents deployed + dispatches, Cache Hit Ratio

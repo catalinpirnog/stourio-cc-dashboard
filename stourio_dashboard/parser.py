@@ -45,8 +45,49 @@ def clean_tool_name(name: str) -> str:
     return name.replace("mcp__gemini-cli__", "").replace("mcp__", "")
 
 
-def extract_tool_calls(msg: dict) -> list[ToolCall]:
-    tools = []
+def _extract_input_data(tool_name: str, inp: dict) -> Optional[str]:
+    # Web
+    if tool_name in ("WebSearch", "BraveSearch"):
+        return inp.get("query") or inp.get("q")
+    if tool_name == "WebFetch":
+        return inp.get("url")
+    # File ops
+    if tool_name in ("Read", "Write", "Edit", "view_file", "read_file", "create_file",
+                     "str_replace_based_edit_tool", "str_replace_editor"):
+        return inp.get("file_path") or inp.get("path")
+    # Search
+    if tool_name in ("Grep", "grep"):
+        pattern = inp.get("pattern") or inp.get("regex") or ""
+        path = inp.get("path") or ""
+        return f"{pattern}  {path}".strip() if pattern else path or None
+    if tool_name in ("Glob", "glob", "file_search"):
+        return inp.get("pattern") or inp.get("path")
+    # Shell
+    if tool_name in ("Bash", "bash", "execute_bash", "computer"):
+        cmd = inp.get("command") or inp.get("cmd") or ""
+        return cmd[:120] if cmd else None
+    # Agents / subagents
+    if tool_name in ("Agent", "dispatch_agent", "create_agent", "TaskTool", "TeammateTool"):
+        return inp.get("description") or inp.get("subagent_type") or inp.get("prompt", "")[:80]
+    # Tasks
+    if tool_name in ("TaskCreate", "TaskUpdate", "TaskGet"):
+        return inp.get("title") or inp.get("task_id")
+    # MCP / other tools with a query
+    query = inp.get("query") or inp.get("q")
+    if query:
+        return query
+    # Generic: first string value that looks meaningful
+    for key in ("url", "file_path", "path", "name", "id", "topic", "message", "text", "content"):
+        val = inp.get(key)
+        if val and isinstance(val, str):
+            return val[:120]
+    return None
+
+
+def extract_tool_calls(msg: dict) -> tuple[list[ToolCall], dict[str, ToolCall]]:
+    """Returns (tool_calls, id_map) where id_map maps tool_use_id -> ToolCall for error wiring."""
+    tools: list[ToolCall] = []
+    id_map: dict[str, ToolCall] = {}
     content = msg.get("content") or msg.get("message", {}).get("content") or []
     ts = msg.get("timestamp") or msg.get("created_at") or msg.get("message", {}).get("created_at")
 
@@ -54,13 +95,52 @@ def extract_tool_calls(msg: dict) -> list[ToolCall]:
         for block in content:
             if isinstance(block, dict) and block.get("type") == "tool_use":
                 raw_name = block.get("name", "unknown")
-                tools.append(ToolCall(name=clean_tool_name(raw_name), timestamp=ts))
-    
+                inp = block.get("input", {})
+                tc = ToolCall(
+                    name=clean_tool_name(raw_name),
+                    timestamp=ts,
+                    input_data=_extract_input_data(raw_name, inp),
+                )
+                tools.append(tc)
+                if "id" in block:
+                    id_map[block["id"]] = tc
+
     if msg.get("type") == "tool_use":
         raw_name = msg.get("name", "unknown")
-        tools.append(ToolCall(name=clean_tool_name(raw_name), timestamp=ts))
-        
-    return tools
+        inp = msg.get("input", {})
+        tc = ToolCall(
+            name=clean_tool_name(raw_name),
+            timestamp=ts,
+            input_data=_extract_input_data(raw_name, inp),
+        )
+        tools.append(tc)
+        if "id" in msg:
+            id_map[msg["id"]] = tc
+
+    return tools, id_map
+
+
+def _extract_tool_errors(msg: dict) -> list[str]:
+    """Return tool_use_ids of tool results with is_error: true."""
+    error_ids = []
+    # Try multiple content paths (user message, progress message)
+    content = (
+        msg.get("content")
+        or msg.get("message", {}).get("content")
+        or (msg.get("data") or {}).get("message", {}).get("message", {}).get("content")
+        or []
+    )
+    if isinstance(content, list):
+        for block in content:
+            if (
+                isinstance(block, dict)
+                and block.get("type") == "tool_result"
+                and block.get("is_error")
+            ):
+                tid = block.get("tool_use_id", "")
+                if tid:
+                    error_ids.append(tid)
+    return error_ids
 
 
 def extract_agent_info(msg: dict) -> Optional[AgentDispatch]:
@@ -72,24 +152,31 @@ def extract_agent_info(msg: dict) -> Optional[AgentDispatch]:
             task=msg.get("task") or msg.get("prompt", "")[:200],
             timestamp=ts,
         )
-    
+
     content = msg.get("content") or msg.get("message", {}).get("content") or []
     if isinstance(content, list):
         for block in content:
             if isinstance(block, dict) and block.get("type") == "tool_use":
                 name = block.get("name", "")
                 inp = block.get("input", {})
-                
+
                 if name in ("dispatch_agent", "create_agent", "TaskTool", "TeammateTool", "Agent"):
+                    agent_name = (
+                        inp.get("name")
+                        or inp.get("subagent_type")
+                        or inp.get("agent_id")
+                        or inp.get("teammate_name")
+                        or name
+                    )
                     return AgentDispatch(
-                        agent_id=inp.get("agent_id") or inp.get("teammate_name") or name,
+                        agent_id=agent_name,
                         task=inp.get("task") or inp.get("prompt") or inp.get("description", "")[:200],
                         timestamp=ts,
                     )
-                
+
                 standard_tools = {
-                    "bash", "glob", "grep", "read_file", "view_file", "file_search", 
-                    "str_replace", "notebook", "WebSearch", "WebFetch", "ToolSearch", 
+                    "bash", "glob", "grep", "read_file", "view_file", "file_search",
+                    "str_replace", "notebook", "WebSearch", "WebFetch", "ToolSearch",
                     "ask_gemini", "BraveSearch"
                 }
                 if "prompt" in inp and not name.startswith("mcp_") and name not in standard_tools:
@@ -123,16 +210,21 @@ def parse_session_file(filepath: Path, project_name: str) -> Optional[SessionSum
     session_id = filepath.stem
     tokens = TokenUsage()
     tool_calls: list[ToolCall] = []
+    tool_id_map: dict[str, ToolCall] = {}
     agent_dispatches: list[AgentDispatch] = []
     models_used: set[str] = set()
     timestamps: list[datetime] = []
+    turn_durations: list[float] = []
     human_count = 0
     assistant_count = 0
     total_messages = 0
     model = ""
     branch = ""
     project_path = ""
-    pending_tool_ids = set()
+    slug = ""
+    version = ""
+    last_input_tokens = 0
+    pending_tool_ids: set[str] = set()
 
     for line in lines:
         line = line.strip()
@@ -155,10 +247,21 @@ def parse_session_file(filepath: Path, project_name: str) -> Optional[SessionSum
         if ts:
             timestamps.append(ts)
 
+        # Metadata available on every message
+        if not slug:
+            slug = msg.get("slug", "")
+        if not version:
+            version = msg.get("version", "")
+
         if role in ("human", "user"):
             human_count += 1
-        elif role in ("assistant",):
+        elif role == "assistant":
             assistant_count += 1
+            # Track last turn's input tokens for accurate context window %
+            usage = msg.get("usage") or msg.get("message", {}).get("usage") or {}
+            inp_tok = usage.get("input_tokens", 0) or 0
+            if inp_tok:
+                last_input_tokens = inp_tok
 
         msg_model = msg.get("model") or msg.get("message", {}).get("model", "")
         if msg_model:
@@ -171,7 +274,20 @@ def parse_session_file(filepath: Path, project_name: str) -> Optional[SessionSum
         tokens.cache_read_tokens += usage.cache_read_tokens
         tokens.cache_creation_tokens += usage.cache_creation_tokens
 
-        tool_calls.extend(extract_tool_calls(msg))
+        # Turn duration
+        if msg.get("type") == "system" and msg.get("subtype") == "turn_duration":
+            dur = msg.get("durationMs")
+            if isinstance(dur, (int, float)) and dur > 0:
+                turn_durations.append(float(dur))
+
+        new_tools, new_id_map = extract_tool_calls(msg)
+        tool_calls.extend(new_tools)
+        tool_id_map.update(new_id_map)
+
+        # Wire is_error onto the corresponding ToolCall
+        for eid in _extract_tool_errors(msg):
+            if eid in tool_id_map:
+                tool_id_map[eid].is_error = True
 
         # Track active execution state via unbalanced tool IDs
         content = msg.get("content") or msg.get("message", {}).get("content") or []
@@ -182,7 +298,7 @@ def parse_session_file(filepath: Path, project_name: str) -> Optional[SessionSum
                         pending_tool_ids.add(block["id"])
                     elif block.get("type") == "tool_result" and "tool_use_id" in block:
                         pending_tool_ids.discard(block["tool_use_id"])
-        
+
         if msg.get("type") == "tool_use" and "id" in msg:
             pending_tool_ids.add(msg["id"])
 
@@ -205,14 +321,12 @@ def parse_session_file(filepath: Path, project_name: str) -> Optional[SessionSum
 
     now = datetime.now(tz=timezone.utc)
     time_since_last_event = (now - ended).total_seconds() if ended else 0
-    
+
     # State Evaluation Heuristic
     is_active = False
     if len(pending_tool_ids) > 0:
-        # Guaranteed Active: Claude is currently executing a tool/agent and waiting for the result
         is_active = True
-    elif time_since_last_event < 900:  
-        # Soft Active: 15-minute idle timeout to preserve Live Ops view during breaks
+    elif time_since_last_event < 900:
         is_active = True
 
     cost = compute_cost(tokens, model or "claude-sonnet-4-6")
@@ -223,6 +337,8 @@ def parse_session_file(filepath: Path, project_name: str) -> Optional[SessionSum
         project_path=project_path,
         branch=branch,
         model=model,
+        slug=slug,
+        version=version,
         status="active" if is_active else "completed",
         started_at=started,
         ended_at=ended,
@@ -231,11 +347,13 @@ def parse_session_file(filepath: Path, project_name: str) -> Optional[SessionSum
         human_messages=human_count,
         assistant_messages=assistant_count,
         tokens=tokens,
+        last_input_tokens=last_input_tokens,
         cost=cost,
         tool_calls=tool_calls,
         agent_dispatches=agent_dispatches,
         context_window_max=get_context_window(model),
         models_used=sorted(models_used),
+        turn_durations=turn_durations,
         file_path=str(filepath),
     )
 
@@ -244,7 +362,7 @@ def parse_session_events(file_path: str) -> list[dict]:
     path = Path(file_path)
     if not path.exists():
         return []
-    
+
     events = []
     try:
         lines = path.read_text(errors="replace").strip().split("\n")
@@ -292,19 +410,25 @@ def parse_session_events(file_path: str) -> list[dict]:
                 if isinstance(content, list):
                     for b in content:
                         if isinstance(b, dict) and b.get("type") == "tool_use":
-                             events.append({
+                            inp = b.get("input", {})
+                            preview = clean_tool_name(b.get("name", ""))
+                            input_data = _extract_input_data(b.get("name", ""), inp)
+                            if input_data:
+                                preview = f"{preview}: {input_data[:80]}"
+                            events.append({
                                 "timestamp": ts,
                                 "event": "ToolUse",
-                                "preview": clean_tool_name(b.get("name", ""))
-                             })
+                                "preview": preview,
+                                "is_error": False,
+                            })
                 continue
 
             events.append({
                 "timestamp": ts,
                 "event": event_name,
-                "preview": content_preview
+                "preview": content_preview[:300] if content_preview else "",
             })
     except Exception:
         pass
-        
+
     return events

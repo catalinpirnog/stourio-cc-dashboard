@@ -17,28 +17,63 @@ Local observability dashboard for [Claude Code](https://docs.anthropic.com/en/do
 ## Features
 
 ### 🟢 Live Ops
-Real-time view of what Claude Code is doing right now — active agents with their tasks, and every tool invocation as it happens. Auto-refreshes every 30 seconds.
+Real-time view of what Claude Code is doing right now:
+- **Active agents grid** — agent name (subagent type), task description, session slug, last turn duration
+- **Live tools table** — every tool invocation as it happens, with the actual input (file path, bash command, search query, URL) shown inline. Error calls highlighted in red.
+- **Top bar KPIs** — Active Sessions, Live Agents, Live Tools, Live Cost (API estimate), Avg Turn Duration
 
 ### 📡 Live Sessions
-Table of all currently active sessions with project, model, duration, token usage, and tool call counts at a glance.
+Table of all currently active sessions — subagent sessions filtered out to avoid inflation. Columns:
+- Session slug (human-readable name) + expandable detail row
+- Project, model, duration, tokens
+- **Cost** (API estimate with Pro/Max note)
+- **Tool error count**
+- **Context window %** with color-coded progress bar (green → amber → red)
+- **Last turn duration**
+
+Click any row to expand and see the last 30 tool calls with inputs, error flags, cache hit ratio, and branch.
+
+### 📊 History & Stats
+- **Overview cards** — Total Sessions (+ subagent count), Total Cost (API est.), Tool Calls + error count, Agents deployed + dispatches, Cache Hit Ratio
+- **Model distribution** — doughnut chart across all sessions including subagents (Opus, Sonnet, Haiku)
+- **Daily Cost chart** — 30-day line chart of estimated API spend
+- **Tool Usage Frequency** — bar chart of most-used tools across all sessions
+- **Activity heatmap** — GitHub-style 365-day heatmap of session activity
 
 ### 🛠️ Resources
-A dynamically updated library of all your installed Claude Code capabilities, organized into three columns:
+A dynamically updated library of all your installed Claude Code capabilities:
 - **Agents** — specialized workflow agents
 - **Skills** — custom user commands and installed plugin tools
 - **MCP Servers** — Model Context Protocol active servers
 
-### 📊 History & Stats
-- **Overview cards** — total tokens, events, tool calls, unique agents, and session counts across all history
-- **Model distribution** — doughnut chart showing which models are used most
-- **Activity heatmap** — GitHub-style 365-day heatmap of session activity
+---
+
+## What Gets Parsed
+
+Every `.jsonl` session file in `~/.claude/projects/` is parsed for:
+
+| Field | Notes |
+|---|---|
+| Token usage | Input, output, cache read, cache creation — per turn and cumulative |
+| Cost estimate | Calculated against Anthropic API pricing per model |
+| Tool calls | Name + input data (file path, command, query, URL, etc.) |
+| Tool errors | `is_error: true` results wired back to the originating call |
+| Agent dispatches | Subagent type/name extracted from `Agent` tool input |
+| Turn durations | From `system/turn_duration` events — avg and last |
+| Session slug | Human-readable session name (e.g. `noble-honking-boole`) |
+| Claude version | Version of Claude Code that ran the session |
+| Cache hit ratio | `cache_read / (cache_read + input)` per session |
+| Context window % | Based on last turn's input tokens, not cumulative |
+| Subagent detection | Files under `subagents/` linked to parent session |
+
+> **Cost note:** Figures are API billing estimates. If you're on Claude Pro/Max, you are not charged per token — costs are shown for reference if you ever move to API billing.
 
 ---
 
 ## Install
 
 ```bash
-pip install .
+pip3 install .
 ```
 
 ## Run
@@ -124,7 +159,7 @@ launchctl load ~/Library/LaunchAgents/com.stourio.dashboard.plist
 | Dashboard settings | `~/.stourio-dashboard/settings.json` |
 | File cache | `~/.stourio-dashboard/cache/` |
 
-The scanner uses **mtime-based cache invalidation** — unchanged files are never re-parsed. Active sessions are always re-evaluated to detect the 15-minute idle timeout.
+The scanner uses **mtime-based cache invalidation** — unchanged files are never re-parsed. Active sessions are always re-evaluated to detect the 15-minute idle timeout. Subagent JSONL files (under `subagents/`) are detected and linked to their parent session, preventing inflation of session counts and totals.
 
 ### Delete All Session Data
 
@@ -139,10 +174,10 @@ find ~/.claude/projects -type f -name "*.jsonl" -delete
 | Endpoint | Method | Description |
 |---|---|---|
 | `/api/sessions` | `GET` | List sessions — supports `q`, `project`, `model`, `status`, `sort`, `limit`, `offset` |
-| `/api/sessions/:id` | `GET` | Single session detail |
+| `/api/sessions/:id` | `GET` | Single session detail with full tool call list, cost breakdown, turn durations |
 | `/api/sessions/:id/events` | `GET` | Raw parsed events for a session |
 | `/api/resources` | `GET` | Installed Claude Code MCPs, Agents, and Skills |
-| `/api/stats` | `GET` | Aggregate stats: overview, live ops, daily/hourly breakdown, projects, agent teams |
+| `/api/stats` | `GET` | Aggregate stats: live ops, overview, daily cost/tokens/sessions, tool frequency, model distribution, projects, agent teams |
 | `/api/projects` | `GET` | Per-project metrics |
 | `/api/settings` | `GET` | Dashboard settings + available models |
 | `/api/settings` | `POST` | Update settings |

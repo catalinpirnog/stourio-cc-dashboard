@@ -36,9 +36,8 @@ class SessionScanner:
             if not force and fpath in self._cache:
                 cached_mtime, cached_summary = self._cache[fpath]
                 if cached_mtime == mtime:
-                    # Force re-parse for active sessions so parser.py can evaluate the 15-min idle timeout
                     if cached_summary and cached_summary.status == "active":
-                        pass 
+                        pass  # re-parse to evaluate 15-min idle timeout
                     else:
                         if cached_summary:
                             sessions.append(cached_summary)
@@ -46,7 +45,12 @@ class SessionScanner:
 
             project_name = self._extract_project_name(jsonl_file)
             summary = parse_session_file(jsonl_file, project_name)
-            
+
+            if summary:
+                is_sub, parent_id = self._detect_subagent(jsonl_file)
+                summary.is_subagent = is_sub
+                summary.parent_session_id = parent_id
+
             self._cache[fpath] = (mtime, summary)
             if summary:
                 sessions.append(summary)
@@ -58,6 +62,16 @@ class SessionScanner:
         self._last_scan = time.time()
         sessions.sort(key=lambda s: s.started_at or datetime.min, reverse=True)
         return sessions
+
+    def _detect_subagent(self, filepath: Path) -> tuple[bool, str]:
+        """Returns (is_subagent, parent_session_id)."""
+        parts = filepath.parts
+        if "subagents" in parts:
+            idx = list(parts).index("subagents")
+            if idx > 0:
+                parent_file = parts[idx - 1]  # directory named after parent session UUID
+                return True, parent_file
+        return False, ""
 
     def _extract_project_name(self, filepath: Path) -> str:
         rel = filepath.relative_to(self.projects_dir)
@@ -83,60 +97,72 @@ class SessionScanner:
         if not sessions:
             return self._empty_stats()
 
-        live_sessions = [s for s in sessions if s.status == "active"]
-        
+        # Separate top-level and subagent sessions
+        top_sessions = [s for s in sessions if not s.is_subagent]
+        live_sessions = [s for s in top_sessions if s.status == "active"]
+
+        ignored_tools = {"dispatch_agent", "create_agent", "TaskTool", "TeammateTool", "Agent", "intel", "ToolSearch"}
+
         live_tools_count = 0
         live_tools_raw = []
         live_agents_list = []
-        
-        ignored_tools = {"dispatch_agent", "create_agent", "TaskTool", "TeammateTool", "Agent", "intel", "ToolSearch"}
-        
+        live_cost = 0.0
+
         for s in live_sessions:
             short_id = s.session_id[:8]
+            live_cost += s.cost.total
             for t in s.tool_calls:
                 if t.name not in ignored_tools and not t.name.startswith("toolu_"):
                     live_tools_raw.append({
                         "name": t.name,
                         "project": s.project,
-                        "session": short_id,
-                        "timestamp": t.timestamp
+                        "session": s.slug or short_id,
+                        "timestamp": t.timestamp,
+                        "input_data": t.input_data,
+                        "is_error": t.is_error,
                     })
                     live_tools_count += 1
-                
+
             for a in s.agent_dispatches:
                 live_agents_list.append({
                     "agent_id": a.agent_id,
                     "task": a.task,
                     "project": s.project,
-                    "session_id": short_id,
-                    "timestamp": a.timestamp
+                    "session_id": s.slug or short_id,
+                    "timestamp": a.timestamp,
+                    "last_turn_ms": s.last_turn_duration_ms,
                 })
-        
+
         live_agents_list.sort(key=lambda x: x["timestamp"] or "", reverse=True)
         live_tools_raw.sort(key=lambda x: x["timestamp"] or "", reverse=True)
         live_agents_unique = len(set(a["agent_id"] for a in live_agents_list))
 
+        # Aggregate totals — all sessions including subagents (real API charges)
         total_tokens = sum(s.tokens.total for s in sessions)
         total_cost = sum(s.cost.total for s in sessions)
-        total_messages = sum(s.message_count for s in sessions)
+        total_messages = sum(s.message_count for s in top_sessions)
         total_tool_calls = sum(len(s.tool_calls) for s in sessions)
-        total_duration = sum(s.duration_seconds for s in sessions)
+        total_tool_errors = sum(s.tool_error_count for s in sessions)
+        total_duration = sum(s.duration_seconds for s in top_sessions)
 
         model_counts: dict[str, int] = defaultdict(int)
-        for s in sessions:
+        for s in sessions:  # include subagents — they use real models
             for m in s.models_used:
                 model_counts[m] += 1
 
         daily_tokens: dict[str, int] = defaultdict(int)
         daily_sessions: dict[str, int] = defaultdict(int)
+        daily_cost_map: dict[str, float] = defaultdict(float)
         for s in sessions:
             if s.started_at:
                 day = s.started_at.strftime("%Y-%m-%d")
                 daily_tokens[day] += s.tokens.total
-                daily_sessions[day] += 1
+                daily_cost_map[day] += s.cost.total
+                if not s.is_subagent:
+                    daily_sessions[day] += 1
 
         hourly: dict[int, int] = defaultdict(int)
-        for s in sessions:
+        for s in top_sessions:
             if s.started_at:
                 hourly[s.started_at.hour] += 1
 
@@ -145,18 +171,36 @@ class SessionScanner:
         )
         for s in sessions:
             p = project_stats[s.project]
-            p["sessions"] += 1
+            if not s.is_subagent:
+                p["sessions"] += 1
+                p["messages"] += s.message_count
+                p["duration"] += s.duration_seconds
             p["tokens"] += s.tokens.total
             p["cost"] += s.cost.total
-            p["messages"] += s.message_count
-            p["duration"] += s.duration_seconds
             p["tool_calls"] += len(s.tool_calls)
 
-        team_sessions = [s for s in sessions if s.agent_dispatches]
+        team_sessions = [s for s in top_sessions if s.agent_dispatches]
         agent_counts: dict[str, int] = defaultdict(int)
         for s in team_sessions:
             for a in s.agent_dispatches:
                 agent_counts[a.agent_id] += 1
+
+        # Tool frequency across all sessions
+        tool_freq: dict[str, int] = defaultdict(int)
+        for s in sessions:
+            for t in s.tool_calls:
+                if t.name not in ignored_tools and not t.name.startswith("toolu_"):
+                    tool_freq[t.name] += 1
+        top_tools = dict(sorted(tool_freq.items(), key=lambda x: x[1], reverse=True)[:20])
+
+        # Cache efficiency
+        total_cache_read = sum(s.tokens.cache_read_tokens for s in sessions)
+        total_input = sum(s.tokens.input_tokens for s in sessions)
+        cache_hit_ratio = round(total_cache_read / (total_input + total_cache_read) * 100, 1) if (total_input + total_cache_read) else 0.0
+
+        # Turn duration stats across live sessions
+        all_turn_durations = [d for s in live_sessions for d in s.turn_durations]
+        avg_turn_ms = round(sum(all_turn_durations) / len(all_turn_durations)) if all_turn_durations else None
 
         return {
             "live_ops": {
@@ -164,15 +208,20 @@ class SessionScanner:
                 "active_tools": live_tools_count,
                 "active_tools_list": live_tools_raw,
                 "active_agents_count": live_agents_unique,
-                "active_agents": live_agents_list
+                "active_agents": live_agents_list,
+                "live_cost": round(live_cost, 4),
+                "avg_turn_ms": avg_turn_ms,
             },
             "overview": {
-                "total_sessions": len(sessions),
+                "total_sessions": len(top_sessions),
+                "total_subagent_sessions": len(sessions) - len(top_sessions),
                 "total_tokens": total_tokens,
                 "total_cost": round(total_cost, 2),
                 "total_messages": total_messages,
                 "total_tool_calls": total_tool_calls,
+                "total_tool_errors": total_tool_errors,
                 "total_duration_hours": round(total_duration / 3600, 1),
+                "cache_hit_ratio": cache_hit_ratio,
             },
             "models": {
                 "counts": dict(sorted(model_counts.items(), key=lambda x: x[1], reverse=True)),
@@ -180,6 +229,7 @@ class SessionScanner:
             "daily": {
                 "tokens": dict(sorted(daily_tokens.items())),
                 "sessions": dict(sorted(daily_sessions.items())),
+                "cost": {k: round(v, 4) for k, v in sorted(daily_cost_map.items())},
             },
             "hourly": {str(h): hourly.get(h, 0) for h in range(24)},
             "projects": {
@@ -191,11 +241,17 @@ class SessionScanner:
                 "total_dispatches": sum(len(s.agent_dispatches) for s in team_sessions),
                 "agents": dict(sorted(agent_counts.items(), key=lambda x: x[1], reverse=True)),
             },
+            "tool_frequency": top_tools,
         }
 
     def _empty_stats(self) -> dict:
         return {
-            "live_ops": {"active_sessions": 0, "active_tools": 0, "active_tools_list": [], "active_agents_count": 0, "active_agents": []},
-            "overview": {"total_sessions": 0, "total_tokens": 0, "total_cost": 0, "total_messages": 0, "total_tool_calls": 0, "total_duration_hours": 0},
-            "models": {"counts": {}}, "daily": {"tokens": {}, "sessions": {}}, "hourly": {str(h): 0 for h in range(24)}, "projects": {}, "agent_teams": {"total_team_sessions": 0, "total_dispatches": 0, "agents": {}},
+            "live_ops": {"active_sessions": 0, "active_tools": 0, "active_tools_list": [], "active_agents_count": 0, "active_agents": [], "live_cost": 0.0, "avg_turn_ms": None},
+            "overview": {"total_sessions": 0, "total_subagent_sessions": 0, "total_tokens": 0, "total_cost": 0, "total_messages": 0, "total_tool_calls": 0, "total_tool_errors": 0, "total_duration_hours": 0, "cache_hit_ratio": 0.0},
+            "models": {"counts": {}},
+            "daily": {"tokens": {}, "sessions": {}, "cost": {}},
+            "hourly": {str(h): 0 for h in range(24)},
+            "projects": {},
+            "agent_teams": {"total_team_sessions": 0, "total_dispatches": 0, "agents": {}},
+            "tool_frequency": {},
         }

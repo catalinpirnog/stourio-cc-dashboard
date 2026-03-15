@@ -14,8 +14,8 @@ tailwind.config = {
   theme: {
     extend: {
       fontFamily: { mono: ['JetBrains Mono', 'monospace'], sans: ['DM Sans', 'sans-serif'] },
-      colors: { 
-        bg: { 900: '#f4f1e8', 800: '#ffffff', 700: '#f8fafc', 600: '#f1f5f9' } 
+      colors: {
+        bg: { 900: '#f4f1e8', 800: '#ffffff', 700: '#f8fafc', 600: '#f1f5f9' }
       }
     }
   }
@@ -36,47 +36,60 @@ tailwind.config = {
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
   .fade-in { animation: fadeIn 0.2s ease-out; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .ctx-bar { height: 4px; border-radius: 2px; background: #e2e8f0; overflow: hidden; }
+  .ctx-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+  .error-row { background: #fff5f5 !important; }
+  .detail-row { background: #f8fafc; }
+  tr.expandable { cursor: pointer; }
+  tr.expandable:hover td { background: #f8fafc; }
 </style>
 </head>
 <body class="min-h-screen">
 
 <header class="border-b border-gray-200 px-6 py-4 flex items-center justify-between bg-bg-800 relative">
-  
   <div class="flex items-center gap-3">
     <img src="/static/logo.png" alt="Custom Logo" class="h-8 object-contain" onerror="this.outerHTML='<span class=\'font-semibold text-lg tracking-tight text-gray-900\'>Custom Logo Missing</span>'">
-   
   </div>
-
   <div class="absolute left-1/2 -translate-x-1/2 flex items-center">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="32" height="32" fill="#d97757">
       <path d="m146-346-42-42 147-147-147-147 42-42 189 189-189 189Zm254 26v-60h414v60H400Z"/>
     </svg>
-     <span class="text-gray-400 text-sm mono">Intelligent Live Ops</span>
+    <span class="text-gray-400 text-sm mono">Intelligent Live Ops</span>
   </div>
-
   <button onclick="refreshAll()" class="text-gray-500 hover:text-cyan-600 transition text-sm mono border border-gray-300 rounded px-3 py-1 hover:border-cyan-600">refresh</button>
-
 </header>
 
+<!-- Top KPI Bar -->
 <div class="px-6 py-4 border-b border-gray-200 bg-bg-900 flex gap-4 overflow-x-auto">
-  <div class="card p-4 min-w-[200px] flex-1 bg-bg-800 border-gray-200">
+  <div class="card p-4 min-w-[160px] flex-1 bg-bg-800 border-gray-200">
     <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2 flex items-center gap-2">
       <span class="w-2 h-2 rounded-full bg-emerald-500 pulse"></span> Active Sessions
     </div>
     <div class="text-3xl font-bold text-gray-900" id="liveSessions">-</div>
   </div>
-  <div class="card p-4 min-w-[200px] flex-1 bg-bg-800 border-gray-200">
-    <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2">Live Agents Deployed</div>
+  <div class="card p-4 min-w-[160px] flex-1 bg-bg-800 border-gray-200">
+    <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2">Live Agents</div>
     <div class="text-3xl font-bold text-fuchsia-600" id="liveAgentsCount">-</div>
   </div>
-  <div class="card p-4 min-w-[200px] flex-1 bg-bg-800 border-gray-200">
-    <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2">Total Live Tools Invoked</div>
+  <div class="card p-4 min-w-[160px] flex-1 bg-bg-800 border-gray-200">
+    <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2">Live Tools</div>
     <div class="text-3xl font-bold text-cyan-600" id="liveToolsCount">-</div>
+  </div>
+  <div class="card p-4 min-w-[160px] flex-1 bg-bg-800 border-gray-200">
+    <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2 flex items-center gap-2">
+      Live Cost
+      <span class="text-[9px] bg-amber-100 text-amber-700 border border-amber-200 rounded px-1 py-0.5 font-sans normal-case tracking-normal">API est. · Pro/Max</span>
+    </div>
+    <div class="text-3xl font-bold text-emerald-600" id="liveCost">-</div>
+  </div>
+  <div class="card p-4 min-w-[160px] flex-1 bg-bg-800 border-gray-200">
+    <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2">Avg Turn</div>
+    <div class="text-3xl font-bold text-yellow-600" id="avgTurn">-</div>
   </div>
 </div>
 
 <nav class="border-b border-gray-200 px-6 flex gap-6 text-sm font-medium bg-bg-900">
-  <button onclick="showTab('live_ops')" id="tab-live_ops" class="py-3 tab-active transition">Live Ops (Agents & Tools)</button>
+  <button onclick="showTab('live_ops')" id="tab-live_ops" class="py-3 tab-active transition">Live Ops</button>
   <button onclick="showTab('active_sessions')" id="tab-active_sessions" class="py-3 tab-inactive transition">Live Sessions</button>
   <button onclick="showTab('history')" id="tab-history" class="py-3 tab-inactive transition">History & Stats</button>
   <button onclick="showTab('resources')" id="tab-resources" class="py-3 tab-inactive transition">Resources</button>
@@ -84,6 +97,7 @@ tailwind.config = {
 
 <main class="p-6 max-w-[1800px] w-full mx-auto">
 
+<!-- LIVE OPS TAB -->
 <div id="panel-live_ops" class="fade-in">
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
     <div class="flex flex-col gap-4">
@@ -92,17 +106,17 @@ tailwind.config = {
         <div class="text-gray-500 text-sm">Loading active agents...</div>
       </div>
     </div>
-    
+
     <div class="flex flex-col gap-4">
       <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Live Tools</h3>
       <div class="card overflow-hidden">
         <table class="w-full text-sm">
           <thead class="text-left text-gray-500 text-xs uppercase tracking-wider">
             <tr class="border-b border-gray-200 bg-bg-700">
-              <th class="px-4 py-3">Tool Name</th>
+              <th class="px-4 py-3">Tool</th>
               <th class="px-4 py-3">Project</th>
-              <th class="px-4 py-3 text-right">Session ID</th>
-              <th class="px-4 py-3 text-right">Invoked</th>
+              <th class="px-4 py-3 text-right">Session</th>
+              <th class="px-4 py-3 text-right">When</th>
             </tr>
           </thead>
           <tbody id="liveToolsBody" class="mono text-xs"></tbody>
@@ -112,17 +126,21 @@ tailwind.config = {
   </div>
 </div>
 
+<!-- LIVE SESSIONS TAB -->
 <div id="panel-active_sessions" class="hidden fade-in">
   <div class="card overflow-hidden">
     <table class="w-full text-sm">
       <thead class="text-left text-gray-500 text-xs uppercase tracking-wider">
         <tr class="border-b border-gray-200 bg-bg-700">
-          <th class="px-4 py-3">Session ID</th>
+          <th class="px-4 py-3">Session</th>
           <th class="px-4 py-3">Project</th>
           <th class="px-4 py-3">Model</th>
           <th class="px-4 py-3 text-right">Duration</th>
           <th class="px-4 py-3 text-right">Tokens</th>
-          <th class="px-4 py-3 text-right">Tools</th>
+          <th class="px-4 py-3 text-right">Cost</th>
+          <th class="px-4 py-3 text-right">Errors</th>
+          <th class="px-4 py-3 text-right">Context</th>
+          <th class="px-4 py-3 text-right">Last Turn</th>
         </tr>
       </thead>
       <tbody id="activeSessionsBody" class="mono text-xs"></tbody>
@@ -130,11 +148,12 @@ tailwind.config = {
   </div>
 </div>
 
+<!-- HISTORY TAB -->
 <div id="panel-history" class="hidden fade-in">
-  <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Historical Global Overview</h3>
-  
+  <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Historical Overview</h3>
+
   <div class="flex gap-4 mb-6 overflow-x-auto" id="historyCards">
-    <div class="text-gray-500 text-sm">Loading history stats...</div>
+    <div class="text-gray-500 text-sm">Loading...</div>
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -142,6 +161,15 @@ tailwind.config = {
       <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3">Model Distribution</h4>
       <div class="relative h-[220px]"><canvas id="modelChart"></canvas></div>
     </div>
+    <div class="card p-4 col-span-2">
+      <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3">Daily Cost ($)</h4>
+      <div class="relative h-[220px]"><canvas id="costChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card p-4 mb-6">
+    <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3">Tool Usage Frequency</h4>
+    <div class="relative h-[200px]"><canvas id="toolFreqChart"></canvas></div>
   </div>
 
   <div class="card p-4 mb-6">
@@ -150,35 +178,27 @@ tailwind.config = {
   </div>
 </div>
 
+<!-- RESOURCES TAB -->
 <div id="panel-resources" class="hidden fade-in">
   <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Claude Code Resources</h3>
-  
   <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="resourcesGrid">
     <div class="flex flex-col gap-4">
       <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
         <div class="w-2 h-2 rounded-full bg-fuchsia-600"></div> Agents
       </h4>
-      <div id="agentsList" class="flex flex-col gap-3">
-        <div class="text-gray-500 text-sm">Loading Agents...</div>
-      </div>
+      <div id="agentsList" class="flex flex-col gap-3"><div class="text-gray-500 text-sm">Loading...</div></div>
     </div>
-    
     <div class="flex flex-col gap-4">
       <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
         <div class="w-2 h-2 rounded-full bg-emerald-600"></div> Skills
       </h4>
-      <div id="skillsList" class="flex flex-col gap-3">
-        <div class="text-gray-500 text-sm">Loading Skills...</div>
-      </div>
+      <div id="skillsList" class="flex flex-col gap-3"><div class="text-gray-500 text-sm">Loading...</div></div>
     </div>
-
     <div class="flex flex-col gap-4">
       <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
         <div class="w-2 h-2 rounded-full bg-cyan-600"></div> MCP Servers
       </h4>
-      <div id="mcpList" class="flex flex-col gap-3">
-        <div class="text-gray-500 text-sm">Loading MCPs...</div>
-      </div>
+      <div id="mcpList" class="flex flex-col gap-3"><div class="text-gray-500 text-sm">Loading...</div></div>
     </div>
   </div>
 </div>
@@ -194,6 +214,20 @@ function fmt(n) {
   return n.toString();
 }
 
+function fmtCost(v) {
+  if (v === null || v === undefined) return '-';
+  if (v < 0.01) return '$' + v.toFixed(4);
+  if (v < 1) return '$' + v.toFixed(3);
+  return '$' + v.toFixed(2);
+}
+
+function fmtMs(ms) {
+  if (!ms) return '-';
+  if (ms < 1000) return ms + 'ms';
+  if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
+  return (ms / 60000).toFixed(1) + 'm';
+}
+
 function timeSince(iso) {
   if (!iso) return '-';
   const seconds = Math.floor((new Date() - new Date(iso)) / 1000);
@@ -205,6 +239,12 @@ function timeSince(iso) {
 function shortModel(m) {
   if (!m) return '-';
   return m.replace('claude-', '').replace('-20250514', '').replace('-20250918', '');
+}
+
+function ctxColor(pct) {
+  if (pct >= 80) return '#ef4444';
+  if (pct >= 60) return '#f59e0b';
+  return '#06b6d4';
 }
 
 function showTab(name) {
@@ -229,15 +269,60 @@ function renderDonut(canvasId, data, colors, labels) {
   });
 }
 
+function renderLineChart(canvasId, labels, data, label, color) {
+  if (charts[canvasId]) charts[canvasId].destroy();
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data,
+        borderColor: color,
+        backgroundColor: color + '22',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3,
+        pointBackgroundColor: color,
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 14 }, grid: { color: '#f1f5f9' } },
+        y: { ticks: { color: '#94a3b8', font: { size: 10 }, callback: v => '$' + v.toFixed(2) }, grid: { color: '#f1f5f9' } }
+      }
+    }
+  });
+}
+
+function renderBarChart(canvasId, labels, data, color) {
+  if (charts[canvasId]) charts[canvasId].destroy();
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: color + 'cc', borderColor: color, borderWidth: 1, borderRadius: 3 }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#64748b', font: { size: 10, family: 'JetBrains Mono' } }, grid: { display: false } },
+        y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#f1f5f9' } }
+      }
+    }
+  });
+}
+
 function renderHeatmap(dailySessions) {
   const container = document.getElementById('heatmapContainer');
   const today = new Date();
   const start = new Date(today);
   start.setDate(start.getDate() - 364);
-
   const vals = Object.values(dailySessions);
   const maxVal = vals.length > 0 ? Math.max(...vals, 1) : 1;
-
   let html = '<div class="flex gap-[3px] flex-wrap">';
   for (let i = 0; i <= 364; i++) {
     const d = new Date(start);
@@ -246,7 +331,6 @@ function renderHeatmap(dailySessions) {
     const count = dailySessions[key] || 0;
     const intensity = count / maxVal;
     let bg;
-    // Inverted heatmap colors for light theme
     if (count === 0) bg = '#e2e8f0';
     else if (intensity < 0.25) bg = '#cffafe';
     else if (intensity < 0.5) bg = '#67e8f9';
@@ -256,6 +340,60 @@ function renderHeatmap(dailySessions) {
   }
   html += '</div>';
   container.innerHTML = html;
+}
+
+// Session detail expand/collapse
+function toggleSessionDetail(sessionId, btn) {
+  const detailRow = document.getElementById('detail-' + sessionId);
+  if (!detailRow) return;
+  const isHidden = detailRow.classList.contains('hidden');
+  detailRow.classList.toggle('hidden', !isHidden);
+  btn.textContent = isHidden ? '▾' : '▸';
+  if (isHidden && detailRow.dataset.loaded !== 'true') {
+    loadSessionDetail(sessionId, detailRow);
+  }
+}
+
+async function loadSessionDetail(sessionId, row) {
+  row.querySelector('.detail-content').innerHTML = '<td colspan="9" class="px-6 py-3 text-gray-400 mono text-xs">Loading...</td>';
+  try {
+    const res = await fetch('/api/sessions/' + sessionId);
+    const s = await res.json();
+    row.dataset.loaded = 'true';
+    const tools = s.tool_calls || [];
+    if (tools.length === 0) {
+      row.querySelector('.detail-content').innerHTML = '<td colspan="9" class="px-6 py-3 text-gray-400 text-xs">No tool calls recorded.</td>';
+      return;
+    }
+    const rows = tools.slice(-30).reverse().map(t => `
+      <tr class="${t.is_error ? 'bg-red-50' : ''}">
+        <td class="pl-10 pr-2 py-1 mono text-[10px] ${t.is_error ? 'text-red-600 font-bold' : 'text-cyan-700'}">${t.name}${t.is_error ? ' ⚠' : ''}</td>
+        <td class="px-2 py-1 text-gray-500 text-[10px] truncate max-w-[340px]" title="${t.input_data || ''}">${t.input_data || ''}</td>
+        <td class="px-2 py-1 text-gray-400 text-[10px] text-right">${timeSince(t.timestamp)}</td>
+      </tr>
+    `).join('');
+    row.querySelector('.detail-content').innerHTML = `
+      <td colspan="9" class="px-0 py-0">
+        <table class="w-full">
+          <thead><tr class="bg-slate-50 border-b border-gray-100">
+            <th class="pl-10 pr-2 py-1.5 text-left text-[10px] text-gray-400 uppercase tracking-wider">Tool</th>
+            <th class="px-2 py-1.5 text-left text-[10px] text-gray-400 uppercase tracking-wider">Input</th>
+            <th class="px-2 py-1.5 text-right text-[10px] text-gray-400 uppercase tracking-wider">When</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="px-6 py-2 text-[10px] text-gray-400 border-t border-gray-100">
+          ${tools.length > 30 ? `Showing last 30 of ${tools.length} tool calls. ` : ''}
+          Cache hit: <span class="text-cyan-600 font-mono">${s.cache_hit_ratio}%</span>
+          · Avg turn: <span class="text-yellow-600 font-mono">${fmtMs(s.avg_turn_duration_ms)}</span>
+          · Errors: <span class="${s.tool_error_count > 0 ? 'text-red-500' : 'text-gray-400'} font-mono">${s.tool_error_count}</span>
+          · Branch: <span class="text-gray-500 font-mono">${s.branch || '-'}</span>
+        </div>
+      </td>
+    `;
+  } catch (e) {
+    row.querySelector('.detail-content').innerHTML = '<td colspan="9" class="px-6 py-3 text-red-400 text-xs">Failed to load detail.</td>';
+  }
 }
 
 async function loadDashboard() {
@@ -270,7 +408,10 @@ async function loadDashboard() {
   document.getElementById('liveSessions').textContent = ops.active_sessions;
   document.getElementById('liveAgentsCount').textContent = ops.active_agents_count;
   document.getElementById('liveToolsCount').textContent = ops.active_tools;
+  document.getElementById('liveCost').textContent = fmtCost(ops.live_cost);
+  document.getElementById('avgTurn').textContent = fmtMs(ops.avg_turn_ms);
 
+  // Active Agents grid
   const grid = document.getElementById('liveAgentsGrid');
   if (ops.active_agents.length === 0) {
     grid.innerHTML = '<div class="text-gray-500 text-sm">No agents actively running right now.</div>';
@@ -281,19 +422,28 @@ async function loadDashboard() {
           <div class="text-fuchsia-600 font-mono font-bold text-sm truncate pr-2" title="${a.agent_id}">${a.agent_id}</div>
           <div class="text-xs text-gray-400 shrink-0">${timeSince(a.timestamp)}</div>
         </div>
-        <div class="text-gray-500 text-xs uppercase mb-1 truncate">${a.project} <span class="text-gray-400 ml-2 mono">ID: ${a.session_id}</span></div>
-        <div class="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">${a.task || 'Executing task...'}</div>
+        <div class="flex items-center gap-2 mb-1">
+          <div class="text-gray-500 text-xs uppercase truncate">${a.project}</div>
+          <span class="text-gray-300">·</span>
+          <div class="text-gray-400 text-xs mono">${a.session_id}</div>
+          ${a.last_turn_ms ? `<span class="text-gray-300">·</span><div class="text-yellow-600 text-xs mono">${fmtMs(a.last_turn_ms)}</div>` : ''}
+        </div>
+        <div class="text-gray-700 text-sm leading-relaxed line-clamp-3">${a.task || 'Executing task...'}</div>
       </div>
     `).join('');
   }
 
+  // Live Tools table
   const toolsBody = document.getElementById('liveToolsBody');
   if (ops.active_tools_list.length === 0) {
     toolsBody.innerHTML = '<tr><td colspan="4" class="px-4 py-4 text-gray-500">No tools active.</td></tr>';
   } else {
     toolsBody.innerHTML = ops.active_tools_list.map(t => `
-      <tr class="border-b border-gray-200 hover:bg-bg-700 fade-in">
-        <td class="px-4 py-2.5 text-cyan-600 font-bold">${t.name}</td>
+      <tr class="border-b border-gray-200 hover:bg-bg-700 fade-in ${t.is_error ? 'bg-red-50' : ''}">
+        <td class="px-4 py-2.5">
+          <div class="${t.is_error ? 'text-red-600 font-bold' : 'text-cyan-600 font-bold'}">${t.name}${t.is_error ? ' ⚠' : ''}</div>
+          ${t.input_data ? `<div class="text-gray-400 text-[10px] mt-0.5 truncate max-w-[220px]" title="${t.input_data}">${t.input_data}</div>` : ''}
+        </td>
         <td class="px-4 py-2.5 text-gray-600">${t.project}</td>
         <td class="px-4 py-2.5 text-right text-gray-400 mono">${t.session}</td>
         <td class="px-4 py-2.5 text-right text-gray-500">${timeSince(t.timestamp)}</td>
@@ -301,43 +451,87 @@ async function loadDashboard() {
     `).join('');
   }
 
+  // Live Sessions table — filter subagents
+  const activeSessions = sessionsData.sessions.filter(s => !s.is_subagent);
   const sessionBody = document.getElementById('activeSessionsBody');
-  if (sessionsData.sessions.length === 0) {
-    sessionBody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-gray-500">No active sessions.</td></tr>';
+  if (activeSessions.length === 0) {
+    sessionBody.innerHTML = '<tr><td colspan="9" class="px-4 py-4 text-gray-500">No active sessions.</td></tr>';
   } else {
-    sessionBody.innerHTML = sessionsData.sessions.map(s => `
-      <tr class="border-b border-gray-200 hover:bg-bg-700 fade-in">
-        <td class="px-4 py-2.5 text-gray-500 mono">${s.session_id.substring(0,8)}</td>
-        <td class="px-4 py-2.5 text-cyan-600">${s.project}</td>
-        <td class="px-4 py-2.5 text-gray-600 truncate" title="${s.model}">${s.model.replace('claude-', '')}</td>
-        <td class="px-4 py-2.5 text-right mono text-gray-600">${s.duration_display}</td>
-        <td class="px-4 py-2.5 text-right mono text-gray-600">${fmt(s.tokens.total)}</td>
-        <td class="px-4 py-2.5 text-right mono text-gray-600">${s.tool_call_count}</td>
-      </tr>
-    `).join('');
+    sessionBody.innerHTML = activeSessions.map(s => {
+      const ctx = s.context_window || {};
+      const ctxPct = ctx.utilization_pct || 0;
+      const displayName = s.slug || s.session_id.substring(0, 8);
+      const errBadge = s.tool_error_count > 0
+        ? `<span class="text-red-500 font-bold">${s.tool_error_count}</span>`
+        : `<span class="text-gray-300">0</span>`;
+      return `
+        <tr class="border-b border-gray-200 expandable fade-in" onclick="toggleSessionDetail('${s.session_id}', this.querySelector('.expand-btn'))">
+          <td class="px-4 py-2.5">
+            <div class="flex items-center gap-1.5">
+              <span class="expand-btn text-gray-300 text-xs w-3">▸</span>
+              <span class="text-gray-700 mono text-xs" title="${s.session_id}">${displayName}</span>
+            </div>
+          </td>
+          <td class="px-4 py-2.5 text-cyan-600">${s.project}</td>
+          <td class="px-4 py-2.5 text-gray-600 truncate max-w-[100px]" title="${s.model}">${shortModel(s.model)}</td>
+          <td class="px-4 py-2.5 text-right mono text-gray-600">${s.duration_display}</td>
+          <td class="px-4 py-2.5 text-right mono text-gray-600">${fmt(s.tokens.total)}</td>
+          <td class="px-4 py-2.5 text-right mono text-emerald-700">${fmtCost(s.cost.total)}</td>
+          <td class="px-4 py-2.5 text-right">${errBadge}</td>
+          <td class="px-4 py-2.5 text-right" style="min-width:80px">
+            <div class="flex items-center justify-end gap-1.5">
+              <span class="mono text-[10px]" style="color:${ctxColor(ctxPct)}">${ctxPct}%</span>
+              <div class="ctx-bar w-12"><div class="ctx-fill" style="width:${Math.min(ctxPct,100)}%;background:${ctxColor(ctxPct)}"></div></div>
+            </div>
+          </td>
+          <td class="px-4 py-2.5 text-right mono text-yellow-600">${fmtMs(s.last_turn_duration_ms)}</td>
+        </tr>
+        <tr id="detail-${s.session_id}" class="hidden detail-row border-b border-gray-100">
+          <tbody class="detail-content"><tr><td colspan="9"></td></tr></tbody>
+        </tr>
+      `;
+    }).join('');
   }
 
+  // History cards
   const o = stats.overview;
-  const totalEvents = o.total_messages + o.total_tool_calls + stats.agent_teams.total_dispatches;
   const totalAgents = Object.keys(stats.agent_teams.agents).length;
+  const avgCost = o.total_sessions > 0 ? o.total_cost / o.total_sessions : 0;
 
   document.getElementById('historyCards').innerHTML = [
-    { label: 'Tokens Used', value: fmt(o.total_tokens), color: 'text-purple-600' },
-    { label: 'Total Events', value: fmt(totalEvents), color: 'text-cyan-600' },
-    { label: 'Tools Used', value: fmt(o.total_tool_calls), color: 'text-emerald-600' },
-    { label: 'Agents', value: fmt(totalAgents), color: 'text-fuchsia-600' },
-    { label: 'Sessions', value: fmt(o.total_sessions), color: 'text-yellow-600' },
+    { label: 'Total Sessions', value: fmt(o.total_sessions), sub: `+${o.total_subagent_sessions} subagents`, color: 'text-cyan-600' },
+    { label: 'Total Cost <span class="text-[9px] bg-amber-100 text-amber-700 border border-amber-200 rounded px-1 py-0.5 font-sans normal-case tracking-normal">API est. · Pro/Max</span>', value: fmtCost(o.total_cost), sub: `avg ${fmtCost(avgCost)}/session`, color: 'text-emerald-600' },
+    { label: 'Tool Calls', value: fmt(o.total_tool_calls), sub: `${o.total_tool_errors} errors`, color: 'text-yellow-600' },
+    { label: 'Agents Deployed', value: fmt(totalAgents), sub: `${stats.agent_teams.total_dispatches} dispatches`, color: 'text-fuchsia-600' },
+    { label: 'Cache Hit Ratio', value: o.cache_hit_ratio + '%', sub: 'input token reuse', color: 'text-blue-600' },
   ].map(c => `
-    <div class="card p-4 min-w-[200px] flex-1 bg-bg-800 border-gray-200 fade-in">
-      <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-2">${c.label}</div>
+    <div class="card p-4 min-w-[180px] flex-1 bg-bg-800 border-gray-200 fade-in">
+      <div class="text-[11px] text-gray-500 font-mono uppercase tracking-wider mb-1">${c.label}</div>
       <div class="text-3xl font-bold ${c.color}">${c.value}</div>
+      <div class="text-[10px] text-gray-400 mt-1 mono">${c.sub}</div>
     </div>
   `).join('');
 
+  // Model donut
   const modelLabels = Object.keys(stats.models.counts).map(shortModel);
   const modelData = Object.values(stats.models.counts);
   const modelColors = ['#06b6d4', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
   renderDonut('modelChart', modelData, modelColors.slice(0, modelData.length), modelLabels);
+
+  // Daily cost chart — last 30 days
+  const costData = stats.daily.cost || {};
+  const allDays = Object.keys(costData).sort();
+  const last30 = allDays.slice(-30);
+  renderLineChart('costChart', last30, last30.map(d => costData[d] || 0), 'Cost $', '#10b981');
+
+  // Tool frequency chart
+  const tf = stats.tool_frequency || {};
+  const toolNames = Object.keys(tf);
+  const toolCounts = Object.values(tf);
+  if (toolNames.length > 0) {
+    renderBarChart('toolFreqChart', toolNames, toolCounts, '#06b6d4');
+  }
+
   renderHeatmap(stats.daily.sessions);
 }
 
@@ -345,13 +539,11 @@ async function loadResources() {
   try {
     const res = await fetch('/api/resources');
     const data = await res.json();
-    
+
     const renderCard = (item, colorClass) => `
       <div class="card p-3 border-l-4 ${colorClass} hover:bg-bg-700 transition fade-in cursor-pointer" onclick="this.querySelector('.desc-panel').classList.toggle('hidden')">
         <div class="font-bold text-gray-800 text-sm truncate pr-2">${item.name}</div>
         <div class="text-xs text-gray-400 mt-1 uppercase mono">${item.type}</div>
-        
-        <!-- Click tooltip/accordion -->
         <div class="desc-panel hidden mt-3 pt-3 border-t border-gray-100 text-gray-600 text-xs whitespace-pre-wrap break-words">
           ${item.description}
         </div>
@@ -359,32 +551,26 @@ async function loadResources() {
     `;
 
     const mcpList = document.getElementById('mcpList');
-    if (data.mcps.length === 0) {
-      mcpList.innerHTML = '<div class="text-gray-500 text-sm">No MCP servers found.</div>';
-    } else {
-      mcpList.innerHTML = data.mcps.map(m => renderCard(m, 'border-l-cyan-500')).join('');
-    }
+    mcpList.innerHTML = data.mcps.length === 0
+      ? '<div class="text-gray-500 text-sm">No MCP servers found.</div>'
+      : data.mcps.map(m => renderCard(m, 'border-l-cyan-500')).join('');
 
     const skillsList = document.getElementById('skillsList');
-    if (data.skills.length === 0) {
-      skillsList.innerHTML = '<div class="text-gray-500 text-sm">No Skills found.</div>';
-    } else {
-      skillsList.innerHTML = data.skills.map(s => renderCard(s, 'border-l-emerald-500')).join('');
-    }
+    skillsList.innerHTML = data.skills.length === 0
+      ? '<div class="text-gray-500 text-sm">No Skills found.</div>'
+      : data.skills.map(s => renderCard(s, 'border-l-emerald-500')).join('');
 
     const agentsList = document.getElementById('agentsList');
-    if (data.agents.length === 0) {
-      agentsList.innerHTML = '<div class="text-gray-500 text-sm">No Agents found.</div>';
-    } else {
-      agentsList.innerHTML = data.agents.map(a => renderCard(a, 'border-l-fuchsia-500')).join('');
-    }
+    agentsList.innerHTML = data.agents.length === 0
+      ? '<div class="text-gray-500 text-sm">No Agents found.</div>'
+      : data.agents.map(a => renderCard(a, 'border-l-fuchsia-500')).join('');
   } catch (err) {
     console.error("Failed to load resources:", err);
   }
 }
 
-function refreshAll() { 
-  loadDashboard(); 
+function refreshAll() {
+  loadDashboard();
   loadResources();
 }
 
